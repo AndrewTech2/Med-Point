@@ -104,7 +104,7 @@ def dashboard():
     }
 
     return render_template(
-        "Med-Point.html",
+        "Med-Point .html",
         astronaut=astronaut,
         crew=crew,
         metrics=metrics,
