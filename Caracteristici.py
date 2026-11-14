@@ -197,8 +197,13 @@ def read_name(label: str) -> str:
             return text.title()
 
 
+# Stored on every measurement row too, so their history is kept (the astronauts table
+# only holds the current value).
+HISTORY_DEMOGRAPHICS = (Characteristic.AGE, Characteristic.BODY_WEIGHT, Characteristic.HEIGHT)
+
+
 def create_table(conn: sqlite3.Connection) -> None:
-    """Create the English-schema tables if they do not already exist."""
+    """Create the English-schema tables if missing and add the history columns to old ones."""
     with conn:
         conn.execute(
             """CREATE TABLE IF NOT EXISTS astronauts (
@@ -231,6 +236,11 @@ def create_table(conn: sqlite3.Connection) -> None:
     FOREIGN KEY (astronaut_id) REFERENCES astronauts (id) ON DELETE CASCADE
 )"""
         )
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(measurement_history)")}
+        for characteristic in HISTORY_DEMOGRAPHICS:
+            column = column_name(characteristic)
+            if column not in existing:
+                conn.execute(f"ALTER TABLE measurement_history ADD COLUMN {column} REAL")
 
 
 def astronaut_exists(conn: sqlite3.Connection, last_name: str, first_name: str) -> bool:
@@ -270,12 +280,7 @@ def save_astronaut(
                 WHERE id = ?""",
                 (age, height, weight, astronaut_id),
             )
-        measurement_characteristics = [
-            definition.characteristic
-            for definition in CHARACTERISTIC_DEFINITIONS
-            if definition.characteristic
-            not in (Characteristic.AGE, Characteristic.BODY_WEIGHT, Characteristic.HEIGHT)
-        ]
+        measurement_characteristics = [d.characteristic for d in CHARACTERISTIC_DEFINITIONS]
         measurement_columns = [
             column_name(characteristic) for characteristic in measurement_characteristics
         ]
