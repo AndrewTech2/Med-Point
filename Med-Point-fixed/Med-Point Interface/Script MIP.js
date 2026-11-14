@@ -491,33 +491,32 @@ function updateGraphSummary({ avgHr, recovery } = {}) {
     }
 }
 
-// Draws a smooth line from an array of numbers (any range).
-function updateChart(values) {
-    const line = document.getElementById("chartLinePath");
-    const area = document.getElementById("chartArea");
-    const empty = document.getElementById("chartEmpty");
+const CHART_W = 420, CHART_H = 200, CHART_PAD = 20;
+const GRID_LINES_Y = [25, 75, 125, 175];   // the horizontal grid lines drawn in the HTML
 
+// Smooth line and filled-area paths for an array of numbers (any range), or null if fewer than 2.
+// Optional `times` (ms, one per value) place the points by time instead of evenly.
+// Also returns coords (points as 0-1 fractions of the viewBox), ticks (value at each grid line) and span.
+function chartPaths(values, times) {
     const points = Array.isArray(values)
         ? values.map(Number).filter(Number.isFinite)
         : [];
 
-    if (!line || !area) return;
+    if (points.length < 2) return null;
 
-    if (points.length < 2) {
-        line.setAttribute("d", "");
-        area.setAttribute("d", "");
-        if (empty) empty.hidden = false;
-        return;
-    }
+    let min = Math.min(...points);
+    let max = Math.max(...points);
+    if (min === max) { min -= 1; max += 1; }   // flat series: draw it in the middle
+    const span = max - min;
 
-    const W = 420, H = 200, pad = 20;
-    const min = Math.min(...points);
-    const max = Math.max(...points);
-    const span = max - min || 1;
+    const t0 = Array.isArray(times) ? times[0] : NaN;
+    const tN = Array.isArray(times) ? times[times.length - 1] : NaN;
+    const byTime = Array.isArray(times) && times.length === points.length
+        && times.every(Number.isFinite) && tN > t0;
 
     const coords = points.map((v, i) => [
-        (i / (points.length - 1)) * W,
-        H - pad - ((v - min) / span) * (H - pad * 2)
+        (byTime ? (times[i] - t0) / (tN - t0) : i / (points.length - 1)) * CHART_W,
+        CHART_H - CHART_PAD - ((v - min) / span) * (CHART_H - CHART_PAD * 2)
     ]);
 
     let d = `M ${coords[0][0]} ${coords[0][1]}`;
@@ -528,9 +527,179 @@ function updateChart(values) {
         d += ` C ${cx} ${y0}, ${cx} ${y1}, ${x1} ${y1}`;
     }
 
-    line.setAttribute("d", d);
-    area.setAttribute("d", `${d} L ${W} ${H} L 0 ${H} Z`);
-    if (empty) empty.hidden = true;
+    return {
+        line: d,
+        area: `${d} L ${CHART_W} ${CHART_H} L 0 ${CHART_H} Z`,
+        coords: coords.map(([x, y]) => [x / CHART_W, y / CHART_H]),
+        ticks: GRID_LINES_Y.map(y => ({
+            y: y / CHART_H,
+            value: min + ((CHART_H - CHART_PAD - y) / (CHART_H - CHART_PAD * 2)) * span
+        })),
+        span
+    };
+}
+
+// Draws a smooth line from an array of numbers (any range).
+function updateChart(values) {
+    const line = document.getElementById("chartLinePath");
+    const area = document.getElementById("chartArea");
+    const empty = document.getElementById("chartEmpty");
+
+    if (!line || !area) return;
+
+    const paths = chartPaths(values);
+    line.setAttribute("d", paths ? paths.line : "");
+    area.setAttribute("d", paths ? paths.area : "");
+    if (empty) empty.hidden = Boolean(paths);
+}
+
+/* -----------------------------------
+   HEALTH DATA IN TIME (history)
+   ----------------------------------- */
+
+// window.MED_POINT_HISTORY comes from health_history.js, written by export_history.py
+// (per astronaut and metric: label, unit, points [time, value], summary).
+// The first astronaut in the file is shown.
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+const MAX_DOTS = 40;           // above this many readings only the latest dot is drawn
+const SHORT_HISTORY_MS = 2 * 24 * 60 * 60 * 1000;
+
+function formatValue(value) {
+    return String(Number(value.toFixed(2)));
+}
+
+function parseTime(timestamp) {
+    return new Date(timestamp.replace(" ", "T")).getTime();
+}
+
+// "5 Nov", or "5 Nov, 14:30" when withTime is set.
+function formatDate(ms, withTime) {
+    const date = new Date(ms);
+    if (Number.isNaN(date.getTime())) return "";
+    const day = date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    return withTime
+        ? `${day}, ${date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`
+        : day;
+}
+
+function makeElement(tag, className, text) {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    if (text !== undefined) element.textContent = text;
+    return element;
+}
+
+// A chart label or dot placed inside the frame by --x / --y (fractions of its size).
+function makePlotItem(tag, className, x, y, text) {
+    const item = makeElement(tag, className, text);
+    if (x !== null) item.style.setProperty("--x", x);
+    item.style.setProperty("--y", y);
+    return item;
+}
+
+function makeStatTile(label, value) {
+    const tile = makeElement("div");
+    tile.append(makeElement("span", "", label), makeElement("strong", "", value));
+    return tile;
+}
+
+function formatChange(change) {
+    if (change > 0) return `▲ +${formatValue(change)}`;
+    if (change < 0) return `▼ ${formatValue(change)}`;
+    return "0";
+}
+
+function fillGraphCard(card, metric) {
+    const values = metric.points.map(([, value]) => value);
+    const times = metric.points.map(([time]) => parseTime(time));
+    const first = times[0];
+    const last = times[times.length - 1];
+    const withTime = last - first < SHORT_HISTORY_MS;
+    const date = ms => formatDate(ms, withTime);
+    const { minimum, maximum, mean, change } = metric.summary;
+    const svg = card.querySelector(".health-chart");
+    const empty = card.querySelector(".chart-empty");
+    const frame = card.querySelector(".chart-frame");
+    const paths = chartPaths(values, times);
+
+    card.querySelector(".graph-card-header strong").textContent =
+        `${formatValue(values[values.length - 1])} ${metric.unit}`;
+
+    svg.querySelectorAll("path").forEach(path => path.remove());
+    if (paths) {
+        [["chart-area", paths.area], ["chart-line", paths.line]].forEach(([name, d]) => {
+            const path = document.createElementNS(SVG_NS, "path");
+            path.setAttribute("class", name);
+            path.setAttribute("d", d);
+            svg.appendChild(path);
+        });
+    }
+    if (empty) empty.hidden = Boolean(paths);
+    svg.setAttribute("aria-label", `${metric.label} over time, ${date(first)} to ${date(last)}.`);
+
+    // Rebuilt on every fill, so remove what an earlier fill (or a cloned card) added.
+    card.querySelectorAll(".graph-card-sub, .chart-x-axis, .graph-card-stats, .chart-y-tick, .chart-dot")
+        .forEach(element => element.remove());
+
+    frame.before(makeElement("p", "graph-card-sub",
+        `${values.length} readings · ${date(first)} – ${date(last)} · ${metric.unit}`));
+
+    if (paths) {
+        frame.classList.add("has-axes");
+        const decimals = paths.span >= 20 ? 0 : paths.span >= 2 ? 1 : 2;
+        paths.ticks.forEach(({ y, value }) =>
+            frame.append(makePlotItem("span", "chart-y-tick", null, y, value.toFixed(decimals))));
+
+        const lastIndex = paths.coords.length - 1;
+        paths.coords.forEach(([x, y], i) => {
+            const isLatest = i === lastIndex;
+            if (paths.coords.length > MAX_DOTS && !isLatest) return;
+            const dot = makePlotItem("span", isLatest ? "chart-dot latest" : "chart-dot", x, y);
+            dot.title = `${formatDate(times[i], true)}: ${formatValue(values[i])} ${metric.unit}`;
+            frame.append(dot);
+        });
+    }
+
+    const axis = makeElement("div", "chart-x-axis");
+    axis.append(...[first, (first + last) / 2, last].map(ms => makeElement("span", "", date(ms))));
+    frame.after(axis);
+
+    const stats = makeElement("div", "graph-card-stats");
+    stats.append(
+        makeStatTile("Min", formatValue(minimum)),
+        makeStatTile("Avg", formatValue(mean)),
+        makeStatTile("Max", formatValue(maximum)),
+        makeStatTile("Change", formatChange(change))
+    );
+    card.appendChild(stats);
+}
+
+function loadHealthHistory() {
+    const astronaut = window.MED_POINT_HISTORY?.astronauts?.[0];
+    const grid = document.querySelector(".graph-detail-grid");
+    if (!astronaut || !grid) return;
+
+    const spare = grid.querySelector(".graph-card").cloneNode(true);   // layout for extra metrics
+    const shown = new Set();
+
+    grid.querySelectorAll(".graph-card[data-metric]").forEach(card => {
+        const metric = astronaut.metrics[card.dataset.metric];
+        if (!metric) return;
+        fillGraphCard(card, metric);
+        shown.add(card.dataset.metric);
+    });
+
+    Object.entries(astronaut.metrics)
+        .filter(([key]) => !shown.has(key))
+        .forEach(([key, metric]) => {
+            const card = spare.cloneNode(true);
+            card.dataset.metric = key;
+            card.querySelector(".crew-member-label").textContent = metric.label;
+            fillGraphCard(card, metric);
+            grid.appendChild(card);
+        });
 }
 
 /* -----------------------------------
@@ -586,3 +755,4 @@ window.MedPointDashboard = {
 };
 
 loadHealthSuggestions();
+loadHealthHistory();

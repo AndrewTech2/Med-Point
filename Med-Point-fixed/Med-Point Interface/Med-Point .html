@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
     <link rel="stylesheet" href="Aspect MIP.css">
     <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+    <script src="health_history.js" defer></script>
     <script src="Script MIP.js" defer></script>
 </head>
 <body>
@@ -379,7 +380,7 @@
 
             <div class="graph-detail-grid">
 
-                <article class="graph-card">
+                <article class="graph-card" data-metric="AVERAGE_HEART_RATE">
                     <div class="graph-card-header">
                         <span class="crew-member-label">Heart rate</span>
                         <strong>—</strong>
@@ -415,7 +416,7 @@
                     </div>
                 </article>
 
-                <article class="graph-card">
+                <article class="graph-card" data-metric="SLEEP_HOURS">
                     <div class="graph-card-header">
                         <span class="crew-member-label">Sleep</span>
                         <strong>—</strong>

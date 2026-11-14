@@ -963,12 +963,96 @@ body::before {
 
 .graph-card .health-chart { height: 220px; }
 
+.graph-card { --gutter: 46px; }
+
+.graph-card-sub {
+    margin: -6px 0 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+}
+
+.graph-card .chart-frame.has-axes { padding-left: var(--gutter); }
+
+.chart-y-tick {
+    position: absolute;
+    left: 0;
+    top: calc(100% * var(--y));
+    width: calc(var(--gutter) - 8px);
+    transform: translateY(-50%);
+    text-align: right;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+}
+
+.chart-dot {
+    position: absolute;
+    left: calc(var(--gutter) + (100% - var(--gutter)) * var(--x));
+    top: calc(100% * var(--y));
+    width: 7px;
+    height: 7px;
+    margin: -3.5px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 1px solid rgba(0,0,0,0.45);
+}
+
+.chart-dot.latest {
+    width: 11px;
+    height: 11px;
+    margin: -5.5px;
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.chart-x-axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding-left: var(--gutter);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.graph-card-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+}
+
+.graph-card-stats span {
+    display: block;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.56rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.graph-card-stats strong {
+    font-size: 0.9rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 1050px) {
     .crew-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 760px) {
     .graph-detail-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 520px) {
+    .graph-card-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 560px) {
