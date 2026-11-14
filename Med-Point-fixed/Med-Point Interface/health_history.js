@@ -1,6 +1,7 @@
 window.MED_POINT_HISTORY = {
  "astronauts": [
   {
+   "id": 1,
    "name": "Vega Demo",
    "metrics": {
     "BODY_MASS_INDEX": {
@@ -479,6 +480,7 @@ window.MED_POINT_HISTORY = {
    }
   },
   {
+   "id": 2,
    "name": "Orion Demo",
    "metrics": {
     "BODY_MASS_INDEX": {
@@ -957,6 +959,7 @@ window.MED_POINT_HISTORY = {
    }
   },
   {
+   "id": 3,
    "name": "Nova Demo",
    "metrics": {
     "BODY_MASS_INDEX": {

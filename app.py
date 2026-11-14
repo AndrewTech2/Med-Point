@@ -90,7 +90,7 @@ def dashboard():
     latest = astronaut
     heart_rate_values = [row["average_pulse"] for row in history if row["average_pulse"] is not None]
     average_heart_rate = (
-        sum(heart_rate_values) / len(heart_rate_values) if heart_rate_values else None
+        round(sum(heart_rate_values) / len(heart_rate_values), 1) if heart_rate_values else None
     )
     metrics = {
         "heart_rate": _format_measurement(latest["average_pulse"] if latest else None),

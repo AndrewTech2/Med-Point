@@ -30,6 +30,21 @@ def test_export_has_points_and_summary_per_characteristic(tmp_path):
     assert (heart["unit"], heart["summary"]["change"]) == ("bpm", 6)
 
 
+def test_every_astronaut_has_the_integer_id_from_the_database(tmp_path):
+    # Arrange
+    db = make_db(tmp_path / "h.db", [60, 66])
+
+    # Act
+    with closing(connect_read_only(db)) as conn:
+        data = build_export(conn)
+        expected = [row[0] for row in conn.execute("SELECT id FROM astronauts ORDER BY id")]
+
+    # Assert
+    ids = [a["id"] for a in data["astronauts"]]
+    assert all(type(i) is int for i in ids)
+    assert ids == expected
+
+
 def test_astronaut_without_measurements_has_no_metrics(tmp_path):
     # Arrange
     db = make_db(tmp_path / "h.db", [60])

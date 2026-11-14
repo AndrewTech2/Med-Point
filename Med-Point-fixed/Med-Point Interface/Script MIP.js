@@ -677,7 +677,9 @@ function fillGraphCard(card, metric) {
 }
 
 function loadHealthHistory() {
-    const astronaut = window.MED_POINT_HISTORY?.astronauts?.[0];
+    const astronauts = window.MED_POINT_HISTORY?.astronauts ?? [];
+    const wanted = new URLSearchParams(window.location.search).get("astronaut_id");
+    const astronaut = wanted === null ? astronauts[0] : astronauts.find(a => a.id === Number(wanted));
     const grid = document.querySelector(".graph-detail-grid");
     if (!astronaut || !grid) return;
 

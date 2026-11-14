@@ -19,7 +19,7 @@ DEFAULT_OUT = Path(__file__).with_name("Med-Point-fixed") / "Med-Point Interface
 
 
 def build_export(conn) -> dict:
-    """Per astronaut and characteristic: label, unit, (time, value) points and the summary."""
+    """Per astronaut (database id and name) and characteristic: label, unit, (time, value) points and the summary."""
     astronauts = []
     rows = conn.execute("SELECT id, last_name, first_name FROM astronauts ORDER BY id").fetchall()
     for astronaut_id, last_name, first_name in rows:
@@ -39,7 +39,9 @@ def build_export(conn) -> dict:
                     ],
                     "summary": summary._asdict(),
                 }
-        astronauts.append({"name": printable(f"{last_name} {first_name}"), "metrics": metrics})
+        astronauts.append(
+            {"id": astronaut_id, "name": printable(f"{last_name} {first_name}"), "metrics": metrics}
+        )
     return {"astronauts": astronauts}
 
 
