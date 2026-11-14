@@ -1,0 +1,1180 @@
+/* ------------------------------
+   Med-Point | refined dashboard
+   ------------------------------ */
+
+:root {
+    color-scheme: dark;
+
+    --bg: #07090d;
+    --bg-raised: #0d1118;
+    --surface: rgba(18, 23, 31, 0.72);
+    --surface-solid: #12171f;
+    --text: #eef1f6;
+    --text-2: rgba(200, 208, 220, 0.78);
+    --muted: rgba(150, 160, 176, 0.78);
+    --line: rgba(255, 255, 255, 0.07);
+    --line-strong: rgba(255, 255, 255, 0.14);
+    --accent: #d9b47a;
+    --accent-deep: #b98a4e;
+    --accent-soft: rgba(217, 180, 122, 0.12);
+    --cool: #8fa8c8;
+
+    --radius: 30px;
+    --radius-sm: 18px;
+    --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --ease: cubic-bezier(0.22, 0.75, 0.22, 1);
+}
+
+* { box-sizing: border-box; }
+
+html {
+    min-width: 320px;
+    min-height: 100%;
+    background: var(--bg);
+    scroll-behavior: smooth;
+}
+
+body {
+    min-width: 320px;
+    min-height: 100svh;
+    margin: 0;
+    overflow-x: hidden;
+    color: var(--text);
+    font-family: var(--font);
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background:
+        radial-gradient(ellipse 60% 40% at 50% -10%, rgba(217, 180, 122, 0.07), transparent 70%),
+        radial-gradient(ellipse 50% 40% at 100% 100%, rgba(143, 168, 200, 0.05), transparent 70%),
+        var(--bg);
+}
+
+/* Fine grid, barely visible */
+body::before {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    content: "";
+    background-image:
+        linear-gradient(rgba(255,255,255,0.016) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.016) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse at center, black 40%, transparent 85%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 85%);
+    pointer-events: none;
+}
+
+/* ------------------------------
+   LAYOUT
+   ------------------------------ */
+
+.dashboard {
+    width: 100%;
+    min-height: max(720px, 100svh);
+    margin: 0;
+    padding: clamp(18px, 2.4vw, 40px);
+    display: grid;
+    grid-template-columns:
+        minmax(230px, 0.9fr)
+        minmax(360px, 1.8fr)
+        minmax(230px, 0.9fr);
+    grid-template-rows:
+        minmax(150px, 0.55fr)
+        minmax(210px, 1.15fr)
+        minmax(205px, 1.25fr);
+    grid-template-areas:
+        "colleagues astronaut graphs"
+        "suggestions astronaut graphs"
+        "summary astronaut tasks";
+    gap: clamp(14px, 1.6vw, 24px);
+    align-items: stretch;
+}
+
+.colleagues-panel { grid-area: colleagues; }
+.graphs-panel { grid-area: graphs; }
+.suggestions-panel { grid-area: suggestions; }
+.tasks-panel { grid-area: tasks; }
+
+/* ------------------------------
+   PANELS
+   ------------------------------ */
+
+.panel {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    padding: clamp(18px, 1.7vw, 26px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0) 40%),
+        var(--surface);
+    -webkit-backdrop-filter: blur(18px) saturate(130%);
+    backdrop-filter: blur(18px) saturate(130%);
+    box-shadow:
+        0 1px 0 rgba(255,255,255,0.05) inset,
+        0 24px 48px -24px rgba(0,0,0,0.7);
+    transition: border-color 240ms ease;
+}
+
+/* Thin accent hairline across the top edge */
+.panel::before {
+    position: absolute;
+    top: 0;
+    left: 24px;
+    width: 36px;
+    height: 1px;
+    content: "";
+    background: linear-gradient(90deg, var(--accent), transparent);
+    opacity: 0.8;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .panel:hover { border-color: var(--line-strong); }
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .panel { background: var(--surface-solid); }
+}
+
+.panel-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.panel-heading h2 {
+    margin: 8px 0 0;
+    font-size: clamp(1.05rem, 1.3vw, 1.35rem);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+}
+
+.eyebrow {
+    margin: 0;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+/* ------------------------------
+   BUTTONS
+   ------------------------------ */
+
+.open-button {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 18px;
+    padding: 11px 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    background: rgba(255,255,255,0.02);
+    font: inherit;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 200ms ease, background 200ms ease, color 200ms ease;
+}
+
+.open-button .arrow {
+    color: var(--accent);
+    font-size: 0.95rem;
+    transition: transform 240ms var(--ease);
+}
+
+.open-button:hover {
+    border-color: rgba(217, 180, 122, 0.5);
+    background: var(--accent-soft);
+}
+
+.open-button:hover .arrow { transform: translateX(3px); }
+.open-button:active { transform: translateY(1px); }
+
+.open-button:focus-visible,
+.colleagues-back-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ------------------------------
+   GRAPHS
+   ------------------------------ */
+
+.graph-chart {
+    display: grid;
+    gap: 14px;
+    margin-top: 20px;
+}
+
+.graph-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.graph-summary-item {
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.02);
+}
+
+.graph-summary-item span {
+    display: block;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.graph-summary-item strong {
+    display: block;
+    margin-top: 5px;
+    font-size: 1rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+.chart-frame {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: rgba(0,0,0,0.2);
+    overflow: hidden;
+}
+
+.health-chart {
+    display: block;
+    width: 100%;
+    height: 190px;
+}
+
+.chart-grid line {
+    stroke: rgba(255,255,255,0.06);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+.chart-area { fill: url(#chartFill); }
+
+.chart-line {
+    fill: none;
+    stroke: url(#chartLine);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.chart-empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+.chart-empty[hidden] { display: none; }
+
+.chart-legend {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.chart-legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.legend-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+
+.legend-dot.alternate { background: var(--cool); }
+
+/* ------------------------------
+   SUGGESTIONS AND TASKS
+   ------------------------------ */
+
+.suggestions-list,
+.tasks-list {
+    display: grid;
+    gap: 12px;
+    margin: 20px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.suggestions-list li,
+.tasks-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    color: var(--text-2);
+    font-size: clamp(0.8rem, 0.9vw, 0.88rem);
+    line-height: 1.5;
+}
+
+.tasks-list li::before {
+    width: 14px;
+    height: 14px;
+    margin-top: 0.15em;
+    flex: 0 0 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    content: "";
+}
+
+.suggestions-list .empty-item,
+.suggestions-list .loading-item,
+.tasks-list .empty-task {
+    color: var(--muted);
+}
+
+.suggestions-list .empty-item::before,
+.tasks-list .empty-task::before {
+    opacity: 0.4;
+}
+
+/* ------------------------------
+   EMPTY ASTRONAUT AREA (kept empty)
+   ------------------------------ */
+
+.astronaut-stage {
+    grid-area: astronaut;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 560px;
+}
+
+/* 3D astronaut sits directly on the page, no box around it */
+.astronaut-stage model-viewer {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: inherit;
+    background: transparent;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+    --poster-color: transparent;
+    --progress-bar-color: transparent;
+    --progress-mask: transparent;
+}
+
+.astronaut-stage model-viewer:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    border-radius: var(--radius);
+}
+
+.model-loading {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: grid;
+    gap: 12px;
+    justify-items: center;
+    transform: translate(-50%, -50%);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+    transition: opacity 400ms ease, visibility 0ms linear 400ms;
+}
+
+/* Hidden for good once the model has finished loading */
+.model-loading.is-done {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.model-loading-bar {
+    display: block;
+    width: 120px;
+    height: 2px;
+    overflow: hidden;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.model-loading-bar b {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--accent);
+    transform: scaleX(var(--load, 0));
+    transform-origin: left;
+    transition: transform 200ms ease;
+}
+
+.model-error {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-align: center;
+    pointer-events: none;
+}
+
+/* Main astronaut: the model itself fades (see script); this adds a slight blur */
+.astronaut-stage model-viewer {
+    cursor: default;
+    transition: filter 500ms var(--ease);
+}
+
+
+
+/* Crew models fill their glass slot */
+.crew-model {
+    display: block;
+    padding-top: 20px;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    outline: none;
+    --poster-color: transparent;
+    --progress-bar-color: transparent;
+    --progress-mask: transparent;
+}
+
+/* ------------------------------
+   SUMMARY
+   ------------------------------ */
+
+.summary-panel {
+    grid-area: summary;
+    align-self: end;
+}
+
+.summary-details {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(110px, 1fr);
+    align-items: stretch;
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.summary-metrics {
+    display: flex;
+    min-width: 0;
+    height: 128px;
+    align-items: flex-end;
+    justify-content: space-around;
+    gap: 6px;
+}
+
+.metric-column {
+    display: flex;
+    min-width: 0;
+    height: 100%;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    text-align: center;
+}
+
+.progressBar {
+    position: relative;
+    width: clamp(14px, 1.4vw, 20px);
+    height: 78px;
+    flex: 0 0 auto;
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: rgba(255,255,255,0.03);
+}
+
+.progressBar::after {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: var(--progress, 0%);
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-deep));
+    content: "";
+    transition: height 600ms var(--ease);
+}
+
+.metric-column span {
+    max-width: 100%;
+    color: var(--muted);
+    font-size: 0.6rem;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+}
+
+.metric-column strong {
+    color: var(--text);
+    font-size: 0.72rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.vitals-row {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    padding-left: 14px;
+    border-left: 1px solid var(--line);
+}
+
+.vital-item {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.vital-item:last-child { border-bottom: 0; }
+
+.vital-label {
+    color: var(--muted);
+    font-size: 0.6rem;
+    line-height: 1.2;
+}
+
+.vital-value {
+    font-size: 0.86rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.vital-value small {
+    color: var(--muted);
+    font-size: 0.55rem;
+    font-weight: 400;
+}
+
+/* ------------------------------
+   TABLET
+   ------------------------------ */
+
+@media (max-width: 1050px) {
+    .dashboard {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: auto auto minmax(500px, auto) auto;
+        grid-template-areas:
+            "colleagues graphs"
+            "suggestions graphs"
+            "astronaut astronaut"
+            "summary tasks";
+    }
+
+    .graphs-panel { min-height: 340px; }
+    .astronaut-stage { min-height: 500px; }
+}
+
+/* ------------------------------
+   MOBILE
+   ------------------------------ */
+
+@media (max-width: 650px) {
+    .dashboard {
+        padding: 14px;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto;
+        grid-template-areas:
+            "colleagues"
+            "suggestions"
+            "graphs"
+            "astronaut"
+            "tasks"
+            "summary";
+        gap: 14px;
+    }
+
+    .panel { padding: 20px; }
+    .astronaut-stage { min-height: 440px; }
+    .summary-details { grid-template-columns: minmax(0, 1.45fr) minmax(104px, 1fr); }
+}
+
+/* ------------------------------
+   EXPANDED CREW OVERVIEW PAGE
+   ------------------------------ */
+
+.colleagues-detail-page,
+.graphs-detail-page {
+    position: fixed;
+    z-index: 1001;
+    inset: 0;
+    display: flex;
+    align-items: stretch;
+    width: 100vw;
+    height: 100dvh;
+    overflow: auto;
+    color: var(--text);
+    /* Starts in the panel's own colour and darkens as it grows,
+       so the panel never flashes black. */
+    background-color: #151a22;
+    background-image:
+        radial-gradient(ellipse 60% 40% at 50% -10%, rgba(217, 180, 122, 0.06), transparent 70%);
+    visibility: hidden;
+    pointer-events: none;
+
+    /* Starts as a window exactly over the panel it grew from
+       (--from-* are set by the script). */
+    clip-path: inset(
+        var(--from-top, 50%)
+        var(--from-right, 50%)
+        var(--from-bottom, 50%)
+        var(--from-left, 50%)
+        round 30px
+    );
+    transition:
+        clip-path 720ms var(--ease),
+        background-color 720ms var(--ease),
+        visibility 0ms linear 720ms;
+}
+
+.colleagues-detail-page.is-open,
+.graphs-detail-page.is-open {
+    visibility: visible;
+    pointer-events: auto;
+    clip-path: inset(0 0 0 0 round 0px);
+    background-color: #05070a;
+    transition:
+        clip-path 720ms var(--ease),
+        background-color 720ms var(--ease),
+        visibility 0ms;
+}
+
+.colleagues-back-button {
+    position: sticky;
+    top: 0;
+    left: 0;
+    display: flex;
+    flex: 0 0 64px;
+    height: 100%;
+    min-height: 100dvh;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 20px 10px;
+    border: 0;
+    border-right: 1px solid var(--line);
+    color: var(--muted);
+    background: rgba(255,255,255,0.01);
+    font: inherit;
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 200ms ease, background 200ms ease;
+}
+
+.colleagues-back-button .back-text {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+}
+
+.colleagues-back-button:hover {
+    color: var(--text);
+    background: var(--accent-soft);
+}
+
+.colleagues-detail-content {
+    flex: 1;
+    min-width: 0;
+    padding: clamp(24px, 4.5vw, 64px);
+}
+
+.colleagues-detail-content h1 {
+    margin: 12px 0 0;
+    font-size: clamp(2rem, 4.4vw, 3.6rem);
+    font-weight: 300;
+    letter-spacing: -0.035em;
+}
+
+.colleagues-detail-intro {
+    margin: 12px 0 36px;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.crew-grid {
+    margin-top: clamp(24px, 5vh, 56px);
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(12px, 1.6vw, 24px);
+    align-items: stretch;
+}
+
+.crew-card {
+    display: flex;
+    min-width: 0;
+    min-height: min(61vh, 620px);
+    flex-direction: column;
+    padding: clamp(10px, 1.1vw, 16px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0) 40%),
+        var(--surface-solid);
+    transition: border-color 240ms ease;
+}
+
+.crew-card:hover { border-color: var(--line-strong); }
+
+.crew-silhouette-slot {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-height: 300px;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px dashed var(--line-strong);
+    border-radius: 10px;
+    background: radial-gradient(ellipse at 50% 45%, rgba(143,168,200,0.06), transparent 60%);
+}
+
+.slot-index {
+    position: absolute;
+    z-index: 2;
+    top: 12px;
+    left: 14px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+}
+
+.astronaut-silhouette {
+    position: relative;
+    width: 120px;
+    height: 210px;
+    opacity: 0.35;
+    --silhouette: #c9d3e3;
+}
+
+.astronaut-silhouette .head {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--silhouette);
+    transform: translateX(-50%);
+}
+
+.astronaut-silhouette .torso {
+    position: absolute;
+    left: 50%;
+    top: 34px;
+    width: 52px;
+    height: 72px;
+    border-radius: 16px;
+    background: var(--silhouette);
+    transform: translateX(-50%);
+}
+
+.astronaut-silhouette .arm {
+    position: absolute;
+    top: 40px;
+    width: 12px;
+    height: 62px;
+    border-radius: 999px;
+    background: var(--silhouette);
+}
+
+.astronaut-silhouette .arm-left { left: 18px; transform: rotate(22deg); }
+.astronaut-silhouette .arm-right { right: 18px; transform: rotate(-22deg); }
+
+.astronaut-silhouette .leg {
+    position: absolute;
+    bottom: 0;
+    width: 15px;
+    height: 80px;
+    border-radius: 999px;
+    background: var(--silhouette);
+}
+
+.astronaut-silhouette .leg-left { left: 40px; transform: rotate(6deg); }
+.astronaut-silhouette .leg-right { right: 40px; transform: rotate(-6deg); }
+
+.crew-card-footer {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 4px 4px;
+}
+
+.crew-member-label {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.crew-card-footer strong {
+    font-size: 0.92rem;
+    font-weight: 500;
+    line-height: 1.2;
+    text-align: right;
+}
+
+/* HEALTH DATA PAGE */
+
+.graph-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(12px, 1.6vw, 24px);
+}
+
+.graph-card {
+    min-width: 0;
+    padding: clamp(14px, 1.4vw, 22px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0) 40%),
+        var(--surface-solid);
+    transition: border-color 240ms ease;
+}
+
+.graph-card:hover { border-color: var(--line-strong); }
+
+.graph-card-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.graph-card-header strong {
+    font-size: 1rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.graph-card .health-chart { height: 220px; }
+
+@media (max-width: 1050px) {
+    .crew-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+    .graph-detail-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 560px) {
+    .crew-grid { grid-template-columns: minmax(0, 1fr); }
+    .colleagues-back-button { flex-basis: 52px; }
+}
+
+/* ------------------------------
+   LIQUID GLASS
+   Translucent surfaces, strong blur + saturation,
+   a bright specular rim and a soft light sheen.
+   ------------------------------ */
+
+/* Colour behind the glass, so there is something to blur and refract. */
+body {
+    background:
+        radial-gradient(circle at 12% 16%, rgba(217, 180, 122, 0.30), transparent 36%),
+        radial-gradient(circle at 88% 28%, rgba(104, 146, 255, 0.24), transparent 40%),
+        radial-gradient(circle at 72% 94%, rgba(168, 118, 255, 0.20), transparent 38%),
+        radial-gradient(circle at 18% 90%, rgba(70, 196, 196, 0.14), transparent 34%),
+        var(--bg);
+    background-attachment: fixed;
+}
+
+.colleagues-detail-page,
+.graphs-detail-page {
+    background-image:
+        radial-gradient(circle at 14% 14%, rgba(217, 180, 122, 0.30), transparent 38%),
+        radial-gradient(circle at 86% 24%, rgba(104, 146, 255, 0.24), transparent 42%),
+        radial-gradient(circle at 62% 96%, rgba(168, 118, 255, 0.20), transparent 40%);
+    background-attachment: fixed;
+}
+
+/* Large glass surfaces */
+.panel,
+.crew-card,
+.graph-card {
+    position: relative;
+    isolation: isolate;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background:
+        linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.14) 0%,
+            rgba(255, 255, 255, 0.04) 38%,
+            rgba(255, 255, 255, 0.025) 62%,
+            rgba(255, 255, 255, 0.09) 100%
+        ),
+        rgba(255, 255, 255, 0.035);
+    -webkit-backdrop-filter: blur(28px) saturate(185%) brightness(1.08);
+    backdrop-filter: blur(28px) saturate(185%) brightness(1.08);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.07),
+        inset 0 0 30px rgba(255, 255, 255, 0.035),
+        0 24px 60px -14px rgba(0, 0, 0, 0.6),
+        0 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+/* Light sheen across the surface (replaces the old accent hairline) */
+.panel::before,
+.crew-card::before,
+.graph-card::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    inset: 0;
+    z-index: 0;
+    width: auto;
+    height: auto;
+    border-radius: inherit;
+    background:
+        radial-gradient(120% 70% at 14% -12%, rgba(255, 255, 255, 0.22), transparent 55%),
+        radial-gradient(90% 60% at 100% 112%, rgba(255, 255, 255, 0.08), transparent 60%);
+    content: "";
+    opacity: 1;
+    pointer-events: none;
+}
+
+/* Specular rim: bright on the top-left and bottom-right edges */
+.panel::after,
+.crew-card::after,
+.graph-card::after {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.6) 0%,
+        rgba(255, 255, 255, 0.08) 28%,
+        rgba(255, 255, 255, 0.02) 62%,
+        rgba(255, 255, 255, 0.34) 100%
+    );
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    mask:
+        linear-gradient(#000 0 0) content-box exclude,
+        linear-gradient(#000 0 0);
+    content: "";
+    pointer-events: none;
+}
+
+/* Content sits above the sheen */
+.panel > *,
+.crew-card > *,
+.graph-card > * {
+    position: relative;
+    z-index: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .panel:hover,
+    .crew-card:hover,
+    .graph-card:hover {
+        border-color: rgba(255, 255, 255, 0.14);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.5),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.09),
+            inset 0 0 36px rgba(255, 255, 255, 0.05),
+            0 28px 64px -14px rgba(0, 0, 0, 0.62),
+            0 2px 10px rgba(0, 0, 0, 0.25);
+    }
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .panel,
+    .crew-card,
+    .graph-card {
+        background: rgba(40, 46, 58, 0.92);
+    }
+}
+
+/* Small glass elements nested inside the big ones (no extra blur needed) */
+.graph-summary-item,
+.open-button,
+.crew-silhouette-slot {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03)),
+        rgba(255, 255, 255, 0.02);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.32),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+        0 8px 20px -6px rgba(0, 0, 0, 0.35);
+}
+
+.open-button {
+    border-radius: 999px;
+    padding: 12px 18px;
+}
+
+.open-button:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06)),
+        rgba(217, 180, 122, 0.12);
+}
+
+.crew-silhouette-slot {
+    border-radius: 22px;
+}
+
+/* Recessed glass for charts */
+.chart-frame {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background:
+        linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(255, 255, 255, 0.03));
+    box-shadow:
+        inset 0 2px 6px rgba(0, 0, 0, 0.35),
+        0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* Progress bars: glass tubes with a glossy fill */
+.progressBar {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.4),
+        0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.progressBar::after {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        0 0 14px rgba(217, 180, 122, 0.35);
+}
+
+.vitals-row,
+.vital-item {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Back rail */
+.colleagues-back-button {
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    -webkit-backdrop-filter: blur(24px) saturate(170%);
+    backdrop-filter: blur(24px) saturate(170%);
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ------------------------------
+   ZOOM TRANSITIONS
+   ------------------------------ */
+
+/* Content waits for the zoom, then rises in one piece at a time. */
+.colleagues-detail-page .eyebrow,
+.colleagues-detail-page h1,
+.colleagues-detail-page .colleagues-detail-intro,
+.colleagues-detail-page .crew-card,
+.graphs-detail-page .eyebrow,
+.graphs-detail-page h1,
+.graphs-detail-page .colleagues-detail-intro,
+.graphs-detail-page .graph-card,
+.colleagues-detail-page .colleagues-back-button,
+.graphs-detail-page .colleagues-back-button {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+    transition:
+        opacity 200ms ease,
+        transform 200ms ease,
+        border-color 240ms ease,
+        color 200ms ease,
+        background 200ms ease;
+}
+
+.colleagues-detail-page.is-open .eyebrow,
+.colleagues-detail-page.is-open h1,
+.colleagues-detail-page.is-open .colleagues-detail-intro,
+.colleagues-detail-page.is-open .crew-card,
+.graphs-detail-page.is-open .eyebrow,
+.graphs-detail-page.is-open h1,
+.graphs-detail-page.is-open .colleagues-detail-intro,
+.graphs-detail-page.is-open .graph-card,
+.colleagues-detail-page.is-open .colleagues-back-button,
+.graphs-detail-page.is-open .colleagues-back-button {
+    opacity: 1;
+    transform: none;
+    transition:
+        opacity 700ms var(--ease) calc(300ms + var(--i, 0) * 80ms),
+        transform 700ms var(--ease) calc(300ms + var(--i, 0) * 80ms),
+        border-color 240ms ease,
+        color 200ms ease,
+        background 200ms ease;
+}
+
+/* ------------------------------
+   REDUCED MOTION
+   ------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
