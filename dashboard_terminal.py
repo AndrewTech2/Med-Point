@@ -187,9 +187,25 @@ def render_report(
     return "\n".join(blocks)
 
 
+def _has_table(conn: sqlite3.Connection, name: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)
+    ).fetchone()
+    return row is not None
+
+
+def _load_legacy_names(conn: sqlite3.Connection) -> tuple[AstronautRecord, ...]:
+    """Old Romanian 'astronauti' table: names only, so every characteristic is None (UNKNOWN)."""
+    empty = MappingProxyType({d.characteristic: None for d in CHARACTERISTIC_DEFINITIONS})
+    rows = conn.execute("SELECT nume, prenume FROM astronauti ORDER BY id").fetchall()
+    return tuple(AstronautRecord(last, first, empty) for last, first in rows)
+
+
 def load_db_astronauts(db_path: Path) -> tuple[AstronautRecord, ...]:
     """Read astronauts from the database, strictly read-only (never creates or writes)."""
     with contextlib.closing(connect_read_only(db_path)) as conn:
+        if not _has_table(conn, "astronauts") and _has_table(conn, "astronauti"):
+            return _load_legacy_names(conn)
         stored = load_astronauts(conn)
     return tuple(
         AstronautRecord(last, first, MappingProxyType(dict(values)))
