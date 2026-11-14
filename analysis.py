@@ -1,4 +1,6 @@
 import sqlite3
+from pathlib import Path
+
 import pandas as pd
 
 
@@ -14,111 +16,115 @@ RADIATION_COLUMN = "nivele_radiatie"
 BONE_DENSITY_COLUMN = "densitate_osoasa_calciu"
 
 
-conn = sqlite3.connect(DB_FILE)
+def migrate_database(db_path: str | Path = DB_FILE, table_name: str = TABLE_NAME) -> None:
+    with sqlite3.connect(db_path) as conn:
+        columns = [row[1] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()]
+        for column_name in (RADIATION_COLUMN, BONE_DENSITY_COLUMN):
+            if column_name not in columns:
+                conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} REAL")
+        conn.commit()
 
 
-try:
-    conn.execute(f"ALTER TABLE {TABLE_NAME} ADD COLUMN {RADIATION_COLUMN} REAL")
-    conn.commit()
-except:
-    pass
+def evaluate_pulse(value: float | None) -> str:
+    if value is None or pd.isna(value):
+        return "Unknown"
+    if value < 50 or value > 115:
+        return "Critical"
+    if (50 <= value < 60) or (100 < value <= 115):
+        return "Warning"
+    return "Healthy"
 
-try:
-    conn.execute(f"ALTER TABLE {TABLE_NAME} ADD COLUMN {BONE_DENSITY_COLUMN} REAL")
-    conn.commit()
-except:
-    pass
 
-df = pd.read_sql_query(f"SELECT * FROM {TABLE_NAME}", conn)
-conn.close()
+def evaluate_systolic(value: float | None) -> str:
+    if value is None or pd.isna(value):
+        return "Unknown"
+    if value < 90 or value >= 140:
+        return "Critical"
+    if 120 < value <= 139:
+        return "Warning"
+    return "Healthy"
 
-print("=== ASTRONAUT MEDICAL ANALYSIS REPORT ===")
 
-if df.empty:
-    print("No astronauts found in database.")
-else:
-    for index, row in df.iterrows():
-        full_name = row[LAST_NAME_COLUMN] + " " + row[FIRST_NAME_COLUMN]
+def evaluate_bmi(value: float | None) -> str:
+    if value is None or pd.isna(value):
+        return "Unknown"
+    if value < 17.0 or value >= 30.0:
+        return "Critical"
+    if (17.0 <= value < 18.5) or (25.0 < value <= 29.9):
+        return "Warning"
+    return "Healthy"
+
+
+def evaluate_radiation(value: float | None) -> str:
+    if value is None or pd.isna(value):
+        return "Unknown"
+    if value > 100:
+        return "Critical"
+    if 50 < value <= 100:
+        return "Warning"
+    return "Healthy"
+
+
+def evaluate_bone_density(value: float | None) -> str:
+    if value is None or pd.isna(value):
+        return "Unknown"
+    if value < 0.7 or value > 1.6:
+        return "Critical"
+    if (0.7 <= value < 0.9) or (1.4 < value <= 1.6):
+        return "Warning"
+    return "Healthy"
+
+
+def overall_status(statuses: list[str]) -> str:
+    active_statuses = [status for status in statuses if status != "Unknown"]
+    if "Critical" in active_statuses:
+        return "Critical"
+    if "Warning" in active_statuses:
+        return "Warning"
+    return "Healthy"
+
+
+def analyze_row(row: dict) -> dict:
+    statuses = {
+        "Pulse": evaluate_pulse(row.get(PULSE_COLUMN)),
+        "Systolic Pressure": evaluate_systolic(row.get(SYSTOLIC_COLUMN)),
+        "BMI": evaluate_bmi(row.get(BMI_COLUMN)),
+    }
+
+    if RADIATION_COLUMN in row and row.get(RADIATION_COLUMN) is not None:
+        statuses["Radiation"] = evaluate_radiation(row.get(RADIATION_COLUMN))
+    if BONE_DENSITY_COLUMN in row and row.get(BONE_DENSITY_COLUMN) is not None:
+        statuses["Bone Density"] = evaluate_bone_density(row.get(BONE_DENSITY_COLUMN))
+
+    statuses["Overall Status"] = overall_status(list(statuses.values()))
+    return statuses
+
+
+def load_data(db_path: str | Path = DB_FILE, table_name: str = TABLE_NAME) -> pd.DataFrame:
+    with sqlite3.connect(db_path) as conn:
+        return pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+
+
+def main(db_path: str | Path = DB_FILE) -> None:
+    migrate_database(db_path)
+    df = load_data(db_path)
+
+    print("=== ASTRONAUT MEDICAL ANALYSIS REPORT ===")
+    if df.empty:
+        print("No astronauts found in database.")
+        return
+
+    for _, row in df.iterrows():
+        full_name = f"{row[LAST_NAME_COLUMN]} {row[FIRST_NAME_COLUMN]}"
         print(f"\nAstronaut: {full_name}")
-
-
-
-        # 1. Pulse check
-        pulse = row[PULSE_COLUMN]
-        if pd.isna(pulse):
-            pulse_status = "Unknown"
-        elif pulse < 50 or pulse > 115:
-            pulse_status = "Critical"
-        elif (50 <= pulse < 60) or (100 < pulse <= 115):
-            pulse_status = "Warning"
-        else:
-            pulse_status = "Healthy"
-
-        print(f"  - Pulse: {pulse_status}")
-
-        # 2. Systolic check
-        sys_val = row[SYSTOLIC_COLUMN]
-        if pd.isna(sys_val):
-            sys_status = "Unknown"
-        elif sys_val < 90 or sys_val >= 140:
-            sys_status = "Critical"
-        elif sys_val > 120 and sys_val <= 139:
-            sys_status = "Warning"
-        else:
-            sys_status = "Healthy"
-
-        print(f"  - Systolic Pressure: {sys_status}")
-
-        # 3. BMI check
-        bmi_val = row[BMI_COLUMN]
-        if pd.isna(bmi_val):
-            bmi_status = "Unknown"
-        elif bmi_val < 17.0 or bmi_val >= 30.0:
-            bmi_status = "Critical"
-        elif (17.0 <= bmi_val < 18.5) or (25.0 < bmi_val <= 29.9):
-            bmi_status = "Warning"
-        else:
-            bmi_status = "Healthy"
-
-        print(f"  - BMI: {bmi_status}")
-
-
-        statuses = [pulse_status, sys_status, bmi_status]
-
-        if RADIATION_COLUMN in row and not pd.isna(row[RADIATION_COLUMN]):
-            rad = row[RADIATION_COLUMN]
-            if rad > 100:
-                rad_status = "Critical"
-            elif rad > 50 and rad <= 100:
-                rad_status = "Warning"
+        results = analyze_row(row)
+        for label, status in results.items():
+            if label == "Overall Status":
+                print(f"  --> Overall Status: [{status}]")
             else:
-                rad_status = "Healthy"
-            print(f"  - Radiation: {rad_status}")
-            statuses.append(rad_status)
-
-        if BONE_DENSITY_COLUMN in row and not pd.isna(row[BONE_DENSITY_COLUMN]):
-            bone = row[BONE_DENSITY_COLUMN]
-            if bone < 0.7 or bone > 1.6:
-                bone_status = "Critical"
-            elif (0.7 <= bone < 0.9) or (1.4 < bone <= 1.6):
-                bone_status = "Warning"
-            else:
-                bone_status = "Healthy"
-            print(f"  - Bone Density: {bone_status}")
-            statuses.append(bone_status)
-
-
-        active_statuses = []
-        for s in statuses:
-            if s != "Unknown":
-                active_statuses.append(s)
-
-        if "Critical" in active_statuses:
-            global_status = "Critical"
-        elif "Warning" in active_statuses:
-            global_status = "Warning"
-        else:
-            global_status = "Healthy"
-
-        print(f"  --> Overall Status: [{global_status}]")
+                print(f"  - {label}: {status}")
         print("-" * 40)
+
+
+if __name__ == "__main__":
+    main()
