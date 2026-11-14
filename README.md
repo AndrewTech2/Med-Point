@@ -10,4 +10,5 @@
   <li>Procent de grăsime</li>
   <li>Niveluri de stres</li>
   <li>Glicemia din sânge</li>
+  <li>Orele petrecute dormind</li>
 </ul>
