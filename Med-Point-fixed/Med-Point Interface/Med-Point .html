@@ -35,7 +35,9 @@
         <section class="panel graphs-panel" aria-labelledby="graphsTitle">
             <div class="panel-heading">
                 <div>
-                    <p class="eyebrow">Health data</p>
+                    <p class="eyebrow">
+                        Health data{% if astronaut %} · {{ astronaut.first_name }} {{ astronaut.last_name }}{% endif %}
+                    </p>
                     <h2 id="graphsTitle">Graphs</h2>
                 </div>
             </div>
@@ -44,11 +46,11 @@
                 <div class="graph-summary">
                     <div class="graph-summary-item">
                         <span>Avg HR</span>
-                        <strong id="avgHrValue">—</strong>
+                        <strong id="avgHrValue">{{ metrics.average_heart_rate }}</strong>
                     </div>
                     <div class="graph-summary-item">
                         <span>Recovery</span>
-                        <strong id="recoveryValue">—</strong>
+                        <strong id="recoveryValue">{{ metrics.recovery }}</strong>
                     </div>
                 </div>
 
@@ -145,7 +147,9 @@
 
             <div class="panel-heading">
                 <div>
-                    <p class="eyebrow">Current metrics</p>
+                    <p class="eyebrow">
+                        Current metrics{% if astronaut %} · {{ astronaut.first_name }} {{ astronaut.last_name }}{% endif %}
+                    </p>
                     <h2 id="summaryTitle">Summary</h2>
                 </div>
             </div>
@@ -164,7 +168,7 @@
                              style="--progress: 0%">
                         </div>
                         <span>Bone density</span>
-                        <strong>—</strong>
+                        <strong>{{ metrics.bone_density }}</strong>
                     </div>
 
                     <div class="metric-column">
@@ -177,7 +181,9 @@
                              style="--progress: 0%">
                         </div>
                         <span>Sleep</span>
-                        <strong>—</strong>
+                        <strong>
+                            {{ metrics.sleep }}{% if astronaut and astronaut.sleep_hours is not none %} hours{% endif %}
+                        </strong>
                     </div>
 
                     <div class="metric-column">
@@ -190,7 +196,7 @@
                              style="--progress: 0%">
                         </div>
                         <span>VO₂</span>
-                        <strong>—</strong>
+                        <strong>{{ metrics.vo2 }}</strong>
                     </div>
 
                 </div>
@@ -199,12 +205,16 @@
 
                     <div class="vital-item">
                         <span class="vital-label">Heart rate</span>
-                        <strong class="vital-value" id="bpmValue">— <small>BPM</small></strong>
+                        <strong class="vital-value" id="bpmValue">
+                            {{ metrics.heart_rate }} <small>BPM</small>
+                        </strong>
                     </div>
 
                     <div class="vital-item">
                         <span class="vital-label">Sleep quantity</span>
-                        <strong class="vital-value" id="sleepValue">— <small>hours</small></strong>
+                        <strong class="vital-value" id="sleepValue">
+                            {{ metrics.sleep }} <small>hours</small>
+                        </strong>
                     </div>
 
                 </div>
@@ -271,8 +281,8 @@
                         <span class="slot-index">01</span>
                     </div>
                     <div class="crew-card-footer">
-                        <span class="crew-member-label">Role</span>
-                        <strong>—</strong>
+                        <span class="crew-member-label">Crew member</span>
+                        <strong>{{ crew[0].full_name if crew|length > 0 else "—" }}</strong>
                     </div>
                 </article>
 
@@ -298,8 +308,8 @@
                         <span class="slot-index">02</span>
                     </div>
                     <div class="crew-card-footer">
-                        <span class="crew-member-label">Role</span>
-                        <strong>—</strong>
+                        <span class="crew-member-label">Crew member</span>
+                        <strong>{{ crew[1].full_name if crew|length > 1 else "—" }}</strong>
                     </div>
                 </article>
 
@@ -325,8 +335,8 @@
                         <span class="slot-index">03</span>
                     </div>
                     <div class="crew-card-footer">
-                        <span class="crew-member-label">Role</span>
-                        <strong>—</strong>
+                        <span class="crew-member-label">Crew member</span>
+                        <strong>{{ crew[2].full_name if crew|length > 2 else "—" }}</strong>
                     </div>
                 </article>
 
@@ -352,8 +362,8 @@
                         <span class="slot-index">04</span>
                     </div>
                     <div class="crew-card-footer">
-                        <span class="crew-member-label">Role</span>
-                        <strong>—</strong>
+                        <span class="crew-member-label">Crew member</span>
+                        <strong>{{ crew[3].full_name if crew|length > 3 else "—" }}</strong>
                     </div>
                 </article>
 
@@ -383,7 +393,9 @@
                 <article class="graph-card" data-metric="AVERAGE_HEART_RATE">
                     <div class="graph-card-header">
                         <span class="crew-member-label">Heart rate</span>
-                        <strong>—</strong>
+                        <strong>
+                            {{ metrics.heart_rate }}{% if astronaut and astronaut.average_pulse is not none %} BPM{% endif %}
+                        </strong>
                     </div>
                     <div class="chart-frame">
                         <svg class="health-chart" viewBox="0 0 420 200" preserveAspectRatio="none" role="img" aria-label="Heart rate over time. No data yet.">
@@ -401,7 +413,7 @@
                 <article class="graph-card">
                     <div class="graph-card-header">
                         <span class="crew-member-label">Recovery</span>
-                        <strong>—</strong>
+                        <strong>{{ metrics.recovery }}</strong>
                     </div>
                     <div class="chart-frame">
                         <svg class="health-chart" viewBox="0 0 420 200" preserveAspectRatio="none" role="img" aria-label="Recovery over time. No data yet.">
@@ -419,7 +431,9 @@
                 <article class="graph-card" data-metric="SLEEP_HOURS">
                     <div class="graph-card-header">
                         <span class="crew-member-label">Sleep</span>
-                        <strong>—</strong>
+                        <strong>
+                            {{ metrics.sleep }}{% if astronaut and astronaut.sleep_hours is not none %} hours{% endif %}
+                        </strong>
                     </div>
                     <div class="chart-frame">
                         <svg class="health-chart" viewBox="0 0 420 200" preserveAspectRatio="none" role="img" aria-label="Sleep over time. No data yet.">
@@ -437,7 +451,7 @@
                 <article class="graph-card">
                     <div class="graph-card-header">
                         <span class="crew-member-label">VO₂</span>
-                        <strong>—</strong>
+                        <strong>{{ metrics.vo2 }}</strong>
                     </div>
                     <div class="chart-frame">
                         <svg class="health-chart" viewBox="0 0 420 200" preserveAspectRatio="none" role="img" aria-label="VO2 over time. No data yet.">
