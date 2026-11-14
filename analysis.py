@@ -1,10 +1,10 @@
 import sqlite3
 import pandas as pd
 
-# Conectare simpla, fara Pathlib complicat
+
 conn = sqlite3.connect("astronauti.db")
 
-# Hack clasic de incepator pentru migrare: incercam sa adaugam coloanele si ignoram eroarea daca exista deja
+
 try:
     conn.execute("ALTER TABLE astronauti ADD COLUMN nivele_radiatie REAL")
     conn.commit()
@@ -26,11 +26,10 @@ if df.empty:
     print("No astronauts found in database.")
 else:
     for index, row in df.iterrows():
-        # Concatenare simpla de string-uri
         full_name = row['nume'] + " " + row['prenume']
         print(f"\nAstronaut: {full_name}")
         
-        # O multime de blocuri repetitive copiate si lipite (specific pentru codul de incepator)
+        
         
         # 1. Pulse check
         puls = row['puls_mediu']
@@ -71,10 +70,9 @@ else:
             
         print(f"  - BMI: {bmi_status}")
 
-        # Tinem minte statusurile intr-o lista simpla
+
         statuses = [pulse_status, sys_status, bmi_status]
-        
-        # Verificam coloanele optionale manual, direct in bucla
+ 
         if 'nivele_radiatie' in row and not pd.isna(row['nivele_radiatie']):
             rad = row['nivele_radiatie']
             if rad > 100:
@@ -97,7 +95,7 @@ else:
             print(f"  - Bone Density: {bone_status}")
             statuses.append(bone_status)
 
-        # Calcularea statusului global cu un for clasic in loc de list comprehension avansat
+        
         active_statuses = []
         for s in statuses:
             if s != "Unknown":
