@@ -16,7 +16,23 @@ from collections.abc import Callable, Mapping
 from types import MappingProxyType
 
 from calculations import (
+    BMI_OBESE,
+    BMI_UNDERWEIGHT,
+    BP_CRISIS_DIASTOLIC,
+    BP_CRISIS_SYSTOLIC,
+    BP_HIGH_DIASTOLIC,
+    BP_HIGH_SYSTOLIC,
+    BP_LOW_DIASTOLIC,
+    BP_LOW_SYSTOLIC,
     CAREER_RADIATION_LIMIT_MSV,
+    GLUCOSE_DIABETES,
+    GLUCOSE_LEVEL1_HYPO,
+    GLUCOSE_LEVEL2_HYPO,
+    GLUCOSE_PREDIABETES,
+    RESTING_HR_HIGH,
+    RESTING_HR_LOW,
+    STRESS_HIGH_MIN,
+    STRESS_MODERATE_MIN,
     GRIP_STRENGTH_MIN_KG,
     MIN_ADULT_AGE,
     RECOMMENDED_SLEEP_MIN_HOURS,
@@ -45,26 +61,12 @@ from recommendation_types import (
 )
 
 # --- Thresholds (one block) --------------------------------------------------------------
-BP_CRISIS_SYSTOLIC = 180  # mmHg, [S14, S15]
-BP_CRISIS_DIASTOLIC = 120  # mmHg, [S14, S15]
-BP_HIGH_SYSTOLIC = 130  # mmHg, calc 6
-BP_HIGH_DIASTOLIC = 80  # mmHg, calc 6
-BP_LOW_SYSTOLIC = 90  # mmHg, calc 6
-BP_LOW_DIASTOLIC = 60  # mmHg, calc 6
-RESTING_HR_LOW = 60  # bpm, calc 7 (Characteristic.AVERAGE_HEART_RATE is used as resting HR)
-RESTING_HR_HIGH = 100  # bpm, calc 7
 ORTHOSTATIC_SBP_DROP_MMHG = 20  # systolic drop on standing [unverified/design]
 ORTHOSTATIC_HR_RISE_BPM = 30  # heart-rate rise on standing [unverified/design]
 VO2_WATCH_PERCENT = 90  # % of preflight VO2max, [design] (VO2_MIN_PERCENT comes from calculations)
-GLUCOSE_LEVEL2_HYPO = 54  # mg/dL, [S16]
-GLUCOSE_LEVEL1_HYPO = 70  # mg/dL, [S16]
-GLUCOSE_PREDIABETES = 100  # mg/dL fasting, calc 8
-GLUCOSE_DIABETES = 126  # mg/dL fasting, calc 8
 HBA1C_PREDIABETES = 5.7  # %, [unverified]
 HBA1C_DIABETES = 6.5  # %, [unverified]
 ENERGY_DEFICIT_MIN_DAYS = 3  # consecutive days below TDEE, [design]
-BMI_UNDERWEIGHT = 18.5  # calc 5
-BMI_OBESE = 30  # calc 5
 ESSENTIAL_FAT_MAX_PERCENT: Mapping[Sex, float] = MappingProxyType({Sex.M: 5.0, Sex.F: 13.0})  # [design]
 HIGH_FAT_PERCENT: Mapping[Sex, float] = MappingProxyType({Sex.M: 25.0, Sex.F: 32.0})  # [S23, S25]
 WHTR_HIGH = 0.5  # waist-to-height ratio, [S23, S25]
@@ -79,8 +81,6 @@ SLEEP_EFFICIENCY_MIN = 85  # %, [unverified]
 SLEEP_LATENCY_MAX_MIN = 30  # min, [unverified]
 PVT_LAPSE_INCREASE_WATCH = 2  # lapses above baseline, [design]
 PVT_LAPSE_INCREASE_ACTION = 5  # lapses above baseline, [design]
-STRESS_MODERATE_MIN = 4  # stress 1-10, [design]
-STRESS_HIGH_MIN = 7  # stress 1-10, [design]
 PSS10_HIGH_MIN = 27  # PSS-10 score 0-40, [S45, S46]
 HRV_DROP_PERCENT = 20  # % drop of RMSSD versus baseline, [design]
 RADIATION_WATCH_PERCENT = 50  # % of career limit, [design]

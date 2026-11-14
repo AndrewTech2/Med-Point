@@ -253,3 +253,23 @@ def test_load_astronauts_returns_none_when_no_measurement_exists(tmp_path):
     assert values[Characteristic.BODY_WEIGHT] == 80
     assert values[Characteristic.BODY_MASS_INDEX] is None
     assert len(values) == len(CHARACTERISTIC_DEFINITIONS)
+
+
+def test_connect_read_only_does_not_create_missing_database(tmp_path):
+    missing = tmp_path / "missing.db"
+    with pytest.raises(sqlite3.OperationalError):
+        calc.connect_read_only(missing)
+    assert not missing.exists()
+
+
+def test_connect_read_only_rejects_writes(tmp_path):
+    path = tmp_path / "ro.db"
+    with closing(sqlite3.connect(path)) as conn:
+        create_table(conn)
+    with closing(calc.connect_read_only(path)) as conn:
+        with pytest.raises(sqlite3.OperationalError):
+            conn.execute("DELETE FROM astronauts")
+
+
+def test_printable_strips_terminal_control_characters():
+    assert calc.printable("Marin\x1b]0;x\x07 Andrei\n") == "Marin]0;x Andrei"

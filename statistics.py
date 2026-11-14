@@ -1,6 +1,9 @@
 import sqlite3, pandas, plotly.express
+from pathlib import Path
 
-conn = sqlite3.connect("astronauts.db")
+from calculations import connect_read_only
+
+conn = connect_read_only(Path(__file__).with_name("astronauts.db"))
 conn.row_factory = sqlite3.Row
 cur = conn.cursor()
 measurements = cur.execute("SELECT * FROM measurement_history WHERE astronaut_id = 1 ORDER BY recorded_at ASC").fetchall()
@@ -32,5 +35,4 @@ for measurement in all_measurements.keys():
     print(f"Minimum: {all_measurements[measurement][0]['Minimum']}")
     print(f"Average: {round(all_measurements[measurement][0]['Sum']/all_measurements[measurement][0]['Count'], 2)}")
 
-conn.commit()
 conn.close()

@@ -1,8 +1,9 @@
-import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import pandas as pd
 
+from calculations import connect_read_only, printable
 
 DB_FILE = Path(__file__).with_name("astronauts.db")
 TABLE_NAME = "astronauts"
@@ -92,7 +93,9 @@ def analyze_row(row: dict) -> dict:
 
 
 def load_data(db_path: str | Path = DB_FILE, table_name: str = TABLE_NAME) -> pd.DataFrame:
-    with sqlite3.connect(db_path) as conn:
+    if table_name != TABLE_NAME:
+        raise ValueError(f"Unsupported table: {table_name!r}")
+    with closing(connect_read_only(Path(db_path))) as conn:
         return pd.read_sql_query(
             f"""SELECT a.{FIRST_NAME_COLUMN}, a.{LAST_NAME_COLUMN},
                        m.{PULSE_COLUMN}, m.{SYSTOLIC_COLUMN}, m.{BMI_COLUMN},
@@ -120,7 +123,7 @@ def main(db_path: str | Path = DB_FILE) -> None:
         return
 
     for _, row in df.iterrows():
-        full_name = f"{row[LAST_NAME_COLUMN]} {row[FIRST_NAME_COLUMN]}"
+        full_name = printable(f"{row[LAST_NAME_COLUMN]} {row[FIRST_NAME_COLUMN]}")
         print(f"\nAstronaut: {full_name}")
         results = analyze_row(row)
         for label, status in results.items():

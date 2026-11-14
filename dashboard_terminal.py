@@ -19,7 +19,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import TextIO
 
-from calculations import load_astronauts
+from calculations import connect_read_only, load_astronauts, printable
 from Caracteristici import CHARACTERISTIC_DEFINITIONS, DB_PATH
 from dashboard_demo_data import DEMO_ASTRONAUTS, AstronautRecord
 from recommendation_types import MissionPhase, Status
@@ -142,12 +142,12 @@ def _header(record: AstronautRecord, assessment: Assessment, use_color: bool) ->
     review = "YES" if assessment.multi_system_review else "no"
     count = len(assessment.measure_this)
     data = "data complete" if assessment.is_complete else f"{count} inputs to measure"
-    title = f"{record.last_name} {record.first_name}"
+    title = printable(f"{record.last_name} {record.first_name}")
     return "\n".join([
         "=" * RULE_WIDTH,
         f"{title} | phase: {assessment.phase.value} | overall: {overall}",
         f"Multi-system review: {review} | {data}",
-        f"({record.note})" if record.note else "",
+        f"({printable(record.note)})" if record.note else "",
         "=" * RULE_WIDTH,
     ]).replace("\n\n", "\n")
 
@@ -189,8 +189,7 @@ def render_report(
 
 def load_db_astronauts(db_path: Path) -> tuple[AstronautRecord, ...]:
     """Read astronauts from the database, strictly read-only (never creates or writes)."""
-    uri = db_path.resolve().as_uri() + "?mode=ro"
-    with contextlib.closing(sqlite3.connect(uri, uri=True)) as conn:
+    with contextlib.closing(connect_read_only(db_path)) as conn:
         stored = load_astronauts(conn)
     return tuple(
         AstronautRecord(last, first, MappingProxyType(dict(values)))
@@ -227,7 +226,7 @@ def _load_records(args: argparse.Namespace) -> tuple[AstronautRecord, ...] | Non
     if args.demo:
         return DEMO_ASTRONAUTS
     if not args.db.exists():
-        print(f"Database not found: {args.db}. Nothing was created; use --demo for sample data.")
+        print(f"Database not found: {printable(str(args.db))}. Nothing was created; use --demo for sample data.")
         return None
     try:
         return load_db_astronauts(args.db)

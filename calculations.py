@@ -11,6 +11,7 @@ import sys
 from collections.abc import Sequence
 from contextlib import closing
 from enum import Enum
+from pathlib import Path
 from typing import NamedTuple
 
 from Caracteristici import CHARACTERISTIC_DEFINITIONS, DB_PATH, Characteristic, column_name
@@ -22,6 +23,25 @@ PVT_B_LAPSE_THRESHOLD_MS = 355.0  # brief PVT-B (calculations_extended.md 31)
 HR_RECOVERY_ABNORMAL_BPM = 12.0  # bpm (calculations_extended.md 17)
 VO2_MIN_PERCENT = 80.0  # % of the preflight value (calculations_extended.md 18)
 MIN_ADULT_AGE = 18
+# Category thresholds, shared with recommendation_rules.py (one source of truth).
+BMI_UNDERWEIGHT = 18.5  # kg/m2, WHO (Calcule.md 5)
+BMI_NORMAL_MAX = 25  # kg/m2, WHO
+BMI_OBESE = 30  # kg/m2, WHO
+RESTING_HR_LOW = 60  # bpm, adult at rest (Calcule.md 7)
+RESTING_HR_HIGH = 100  # bpm
+BP_CRISIS_SYSTOLIC = 180  # mmHg, [S14, S15]
+BP_CRISIS_DIASTOLIC = 120  # mmHg, [S14, S15]
+BP_HIGH_SYSTOLIC = 130  # mmHg (Calcule.md 6)
+BP_HIGH_DIASTOLIC = 80  # mmHg
+BP_LOW_SYSTOLIC = 90  # mmHg
+BP_LOW_DIASTOLIC = 60  # mmHg
+BP_ELEVATED_SYSTOLIC = 120  # mmHg
+GLUCOSE_LEVEL2_HYPO = 54  # mg/dL, [S16]
+GLUCOSE_LEVEL1_HYPO = 70  # mg/dL, [S16]
+GLUCOSE_PREDIABETES = 100  # mg/dL fasting (Calcule.md 8)
+GLUCOSE_DIABETES = 126  # mg/dL fasting
+STRESS_MODERATE_MIN = 4  # stress 1-10, [design]
+STRESS_HIGH_MIN = 7  # stress 1-10, [design]
 
 
 class Sex(Enum):
@@ -86,11 +106,11 @@ def muscle_mass_kg(weight_kg: float, muscle_mass_pct: float) -> float:
 
 def bmi_category(bmi: float) -> str:
     """Calcule.md 5 (WHO)."""
-    if bmi < 18.5:
+    if bmi < BMI_UNDERWEIGHT:
         return "underweight"
-    if bmi < 25:
+    if bmi < BMI_NORMAL_MAX:
         return "normal"
-    if bmi < 30:
+    if bmi < BMI_OBESE:
         return "overweight"
     return "obese"
 
@@ -134,9 +154,9 @@ def energy_balance(intake_kcal: float, tdee: float) -> float:
 
 def pulse_category(pulse: float) -> str:
     """Calcule.md 7 (adult at rest)."""
-    if pulse < 60:
+    if pulse < RESTING_HR_LOW:
         return "bradycardia"
-    if pulse <= 100:
+    if pulse <= RESTING_HR_HIGH:
         return "normal"
     return "tachycardia"
 
@@ -144,13 +164,13 @@ def pulse_category(pulse: float) -> str:
 def blood_pressure_category(systolic: float, diastolic: float) -> str:
     """Calcule.md 6 and calculations_extended.md 35: the most severe of the two values applies."""
     _require_valid_blood_pressure(systolic, diastolic)
-    if systolic > 180 or diastolic > 120:
+    if systolic > BP_CRISIS_SYSTOLIC or diastolic > BP_CRISIS_DIASTOLIC:
         return "hypertensive crisis"
-    if systolic < 90 or diastolic < 60:
+    if systolic < BP_LOW_SYSTOLIC or diastolic < BP_LOW_DIASTOLIC:
         return "low"
-    if systolic >= 130 or diastolic >= 80:
+    if systolic >= BP_HIGH_SYSTOLIC or diastolic >= BP_HIGH_DIASTOLIC:
         return "high (hypertension)"
-    if systolic >= 120:
+    if systolic >= BP_ELEVATED_SYSTOLIC:
         return "elevated"
     return "normal"
 
@@ -181,13 +201,13 @@ def pulse_pressure(systolic: float, diastolic: float) -> float:
 
 def glucose_category(glucose_mg_dl: float) -> str:
     """Calcule.md 8 and calculations_extended.md 34 (ADA, fasting values)."""
-    if glucose_mg_dl < 54:
+    if glucose_mg_dl < GLUCOSE_LEVEL2_HYPO:
         return "level 2 hypoglycemia"
-    if glucose_mg_dl < 70:
+    if glucose_mg_dl < GLUCOSE_LEVEL1_HYPO:
         return "level 1 hypoglycemia"
-    if glucose_mg_dl < 100:
+    if glucose_mg_dl < GLUCOSE_PREDIABETES:
         return "normal"
-    if glucose_mg_dl < 126:
+    if glucose_mg_dl < GLUCOSE_DIABETES:
         return "prediabetes"
     return "high"
 
@@ -295,9 +315,9 @@ def stress_category(level: float) -> str:
     """Calcule.md 10 and calculations_extended.md 33: proposed bands (design), no official source."""
     if not 1 <= level <= 10:
         raise ValueError("Stress level must be between 1 and 10.")
-    if level < 4:
+    if level < STRESS_MODERATE_MIN:
         return "low"
-    if level < 7:
+    if level < STRESS_HIGH_MIN:
         return "moderate"
     return "high"
 
@@ -379,6 +399,17 @@ def calculate_from_characteristics(
     }
 
 
+def connect_read_only(db_path: Path) -> sqlite3.Connection:
+    """Open an existing database strictly read-only; never creates or writes a file."""
+    uri = Path(db_path).resolve().as_uri() + "?mode=ro"
+    return sqlite3.connect(uri, uri=True)
+
+
+def printable(text: str) -> str:
+    """Drop control characters so stored names cannot inject terminal escape sequences."""
+    return "".join(ch for ch in text if ch.isprintable())
+
+
 def load_astronauts(
     conn: sqlite3.Connection,
 ) -> dict[tuple[str, str], dict[Characteristic, float | None]]:
@@ -427,10 +458,10 @@ def main() -> None:
     if not DB_PATH.exists():
         print(f"Database {DB_PATH.name} not found. Run Caracteristici.py first.")
         return
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(connect_read_only(DB_PATH)) as conn:
         astronauts = load_astronauts(conn)
     for (last_name, first_name), values in astronauts.items():
-        print(f"\n{last_name} {first_name}")
+        print(f"\n{printable(f'{last_name} {first_name}')}")
         if any(value is None for value in values.values()):
             print("  skipped: some characteristics are missing for this astronaut")
             continue
