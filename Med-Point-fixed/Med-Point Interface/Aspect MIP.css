@@ -1043,6 +1043,56 @@ body::before {
     font-variant-numeric: tabular-nums;
 }
 
+/* RANGE SELECTOR */
+
+.range-selector {
+    display: flex;
+    gap: 4px;
+    width: fit-content;
+    max-width: 100%;
+    margin-bottom: clamp(12px, 1.6vw, 24px);
+    padding: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.range-selector::-webkit-scrollbar { display: none; }
+
+.range-button {
+    flex-shrink: 0;
+    min-width: 44px;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: calc(var(--radius-sm) - 2px);
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: background-color 200ms ease, color 200ms ease;
+}
+
+.range-button:hover { color: var(--text); }
+
+.range-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.range-button.is-active,
+.range-button[aria-pressed="true"] {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--accent);
+    font-weight: 700;
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
 @media (max-width: 1050px) {
     .crew-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

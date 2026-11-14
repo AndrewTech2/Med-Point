@@ -611,69 +611,140 @@ function formatChange(change) {
     return "0";
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_RANGE = "All";
+
+// Start of each time range, counted back from `end` (ms). null means no limit.
+const RANGE_STARTS = {
+    "1D": end => end - DAY_MS,
+    "5D": end => end - 5 * DAY_MS,
+    "1M": end => shiftDate(end, "setMonth", "getMonth", -1),
+    "3M": end => shiftDate(end, "setMonth", "getMonth", -3),
+    "YTD": end => new Date(new Date(end).getFullYear(), 0, 1).getTime(),
+    "1Y": end => shiftDate(end, "setFullYear", "getFullYear", -1),
+    "5Y": end => shiftDate(end, "setFullYear", "getFullYear", -5),
+    "All": () => null
+};
+
+function shiftDate(ms, setter, getter, amount) {
+    const date = new Date(ms);
+    date[setter](date[getter]() + amount);
+    return date.getTime();
+}
+
+// Points at or after `start` (ms); null keeps them all.
+function pointsInRange(points, start) {
+    return start === null ? points : points.filter(([time]) => parseTime(time) >= start);
+}
+
+// Latest reading time over all metrics of an astronaut (not the clock, so demo data works).
+function latestReading(astronaut) {
+    const times = Object.values(astronaut.metrics)
+        .flatMap(metric => metric.points.map(([time]) => parseTime(time)));
+    return times.length ? Math.max(...times) : null;
+}
+
+function emptyMessage(count) {
+    return count === 0 ? "No readings in this range" : "Not enough readings in this range";
+}
+
+function drawLine(svg, paths) {
+    svg.querySelectorAll("path").forEach(path => path.remove());
+    if (!paths) return;
+    [["chart-area", paths.area], ["chart-line", paths.line]].forEach(([name, d]) => {
+        const path = document.createElementNS(SVG_NS, "path");
+        path.setAttribute("class", name);
+        path.setAttribute("d", d);
+        svg.appendChild(path);
+    });
+}
+
+function drawAxesAndDots(frame, paths, times, values, metric) {
+    frame.classList.add("has-axes");
+    const decimals = paths.span >= 20 ? 0 : paths.span >= 2 ? 1 : 2;
+    paths.ticks.forEach(({ y, value }) =>
+        frame.append(makePlotItem("span", "chart-y-tick", null, y, value.toFixed(decimals))));
+
+    const lastIndex = paths.coords.length - 1;
+    paths.coords.forEach(([x, y], i) => {
+        const isLatest = i === lastIndex;
+        if (paths.coords.length > MAX_DOTS && !isLatest) return;
+        const dot = makePlotItem("span", isLatest ? "chart-dot latest" : "chart-dot", x, y);
+        dot.title = `${formatDate(times[i], true)}: ${formatValue(values[i])} ${metric.unit}`;
+        frame.append(dot);
+    });
+}
+
+function makeStatsRow(values) {
+    const stats = makeElement("div", "graph-card-stats");
+    stats.append(
+        makeStatTile("Min", formatValue(Math.min(...values))),
+        makeStatTile("Avg", formatValue(values.reduce((sum, v) => sum + v, 0) / values.length)),
+        makeStatTile("Max", formatValue(Math.max(...values))),
+        makeStatTile("Change", formatChange(values[values.length - 1] - values[0]))
+    );
+    return stats;
+}
+
+// Fills one card from metric.points (any number of them, including none).
 function fillGraphCard(card, metric) {
     const values = metric.points.map(([, value]) => value);
     const times = metric.points.map(([time]) => parseTime(time));
     const first = times[0];
     const last = times[times.length - 1];
-    const withTime = last - first < SHORT_HISTORY_MS;
-    const date = ms => formatDate(ms, withTime);
-    const { minimum, maximum, mean, change } = metric.summary;
+    const date = ms => formatDate(ms, last - first < SHORT_HISTORY_MS);
     const svg = card.querySelector(".health-chart");
     const empty = card.querySelector(".chart-empty");
     const frame = card.querySelector(".chart-frame");
     const paths = chartPaths(values, times);
 
-    card.querySelector(".graph-card-header strong").textContent =
-        `${formatValue(values[values.length - 1])} ${metric.unit}`;
+    card.querySelector(".graph-card-header strong").textContent = values.length
+        ? `${formatValue(values[values.length - 1])} ${metric.unit}`
+        : "—";
 
-    svg.querySelectorAll("path").forEach(path => path.remove());
-    if (paths) {
-        [["chart-area", paths.area], ["chart-line", paths.line]].forEach(([name, d]) => {
-            const path = document.createElementNS(SVG_NS, "path");
-            path.setAttribute("class", name);
-            path.setAttribute("d", d);
-            svg.appendChild(path);
-        });
+    drawLine(svg, paths);
+    if (empty) {
+        empty.hidden = Boolean(paths);
+        if (!paths) empty.textContent = emptyMessage(values.length);
     }
-    if (empty) empty.hidden = Boolean(paths);
-    svg.setAttribute("aria-label", `${metric.label} over time, ${date(first)} to ${date(last)}.`);
+    svg.setAttribute("aria-label", values.length
+        ? `${metric.label} over time, ${date(first)} to ${date(last)}.`
+        : `${metric.label} over time, no readings in this range.`);
 
     // Rebuilt on every fill, so remove what an earlier fill (or a cloned card) added.
     card.querySelectorAll(".graph-card-sub, .chart-x-axis, .graph-card-stats, .chart-y-tick, .chart-dot")
         .forEach(element => element.remove());
 
-    frame.before(makeElement("p", "graph-card-sub",
-        `${values.length} readings · ${date(first)} – ${date(last)} · ${metric.unit}`));
+    const span = values.length ? ` · ${date(first)} – ${date(last)}` : "";
+    frame.before(makeElement("p", "graph-card-sub", `${values.length} readings${span} · ${metric.unit}`));
+    if (!values.length) return;
 
-    if (paths) {
-        frame.classList.add("has-axes");
-        const decimals = paths.span >= 20 ? 0 : paths.span >= 2 ? 1 : 2;
-        paths.ticks.forEach(({ y, value }) =>
-            frame.append(makePlotItem("span", "chart-y-tick", null, y, value.toFixed(decimals))));
-
-        const lastIndex = paths.coords.length - 1;
-        paths.coords.forEach(([x, y], i) => {
-            const isLatest = i === lastIndex;
-            if (paths.coords.length > MAX_DOTS && !isLatest) return;
-            const dot = makePlotItem("span", isLatest ? "chart-dot latest" : "chart-dot", x, y);
-            dot.title = `${formatDate(times[i], true)}: ${formatValue(values[i])} ${metric.unit}`;
-            frame.append(dot);
-        });
-    }
+    if (paths) drawAxesAndDots(frame, paths, times, values, metric);
 
     const axis = makeElement("div", "chart-x-axis");
-    axis.append(...[first, (first + last) / 2, last].map(ms => makeElement("span", "", date(ms))));
+    const axisTimes = paths ? [first, (first + last) / 2, last] : [first];
+    axis.append(...axisTimes.map(ms => makeElement("span", "", date(ms))));
     frame.after(axis);
+    card.appendChild(makeStatsRow(values));
+}
 
-    const stats = makeElement("div", "graph-card-stats");
-    stats.append(
-        makeStatTile("Min", formatValue(minimum)),
-        makeStatTile("Avg", formatValue(mean)),
-        makeStatTile("Max", formatValue(maximum)),
-        makeStatTile("Change", formatChange(change))
-    );
-    card.appendChild(stats);
+// One button per range; clicking one calls onSelect(key).
+function makeRangeSelector(onSelect) {
+    const selector = makeElement("div", "range-selector");
+    selector.setAttribute("role", "group");
+    selector.setAttribute("aria-label", "Time range");
+    const buttons = Object.keys(RANGE_STARTS).map(key => {
+        const button = makeElement("button", "range-button", key);
+        button.type = "button";
+        button.addEventListener("click", () => onSelect(key));
+        return [key, button];
+    });
+    selector.append(...buttons.map(([, button]) => button));
+    selector.select = active => buttons.forEach(([key, button]) => {
+        button.setAttribute("aria-pressed", String(key === active));
+        button.classList.toggle("is-active", key === active);
+    });
+    return selector;
 }
 
 function loadHealthHistory() {
@@ -685,13 +756,7 @@ function loadHealthHistory() {
 
     const spare = grid.querySelector(".graph-card").cloneNode(true);   // layout for extra metrics
     const shown = new Set();
-
-    grid.querySelectorAll(".graph-card[data-metric]").forEach(card => {
-        const metric = astronaut.metrics[card.dataset.metric];
-        if (!metric) return;
-        fillGraphCard(card, metric);
-        shown.add(card.dataset.metric);
-    });
+    grid.querySelectorAll(".graph-card[data-metric]").forEach(card => shown.add(card.dataset.metric));
 
     Object.entries(astronaut.metrics)
         .filter(([key]) => !shown.has(key))
@@ -699,9 +764,21 @@ function loadHealthHistory() {
             const card = spare.cloneNode(true);
             card.dataset.metric = key;
             card.querySelector(".crew-member-label").textContent = metric.label;
-            fillGraphCard(card, metric);
             grid.appendChild(card);
         });
+
+    const end = latestReading(astronaut);
+    const selector = makeRangeSelector(showRange);
+    function showRange(key) {
+        const start = end === null ? null : RANGE_STARTS[key](end);
+        grid.querySelectorAll(".graph-card[data-metric]").forEach(card => {
+            const metric = astronaut.metrics[card.dataset.metric];
+            if (metric) fillGraphCard(card, { ...metric, points: pointsInRange(metric.points, start) });
+        });
+        selector.select(key);
+    }
+    grid.before(selector);
+    showRange(DEFAULT_RANGE);
 }
 
 /* -----------------------------------
