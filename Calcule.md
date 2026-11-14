@@ -98,6 +98,29 @@ Input names match the enum members in [Caracteristici.py](Caracteristici.py). Un
 - **Formula:** `fc_max = 220 - VARSTA`
 - **Use:** percentage of maximum heart rate during activity, if exercise monitoring is needed
 
+## Extended calculations
+
+Calculations 14-35 (mean arterial pressure, VO2max, FFMI, basal metabolic rate, bone loss rate, sleep debt, HRV, PSS-10, PVT lapses, cumulative radiation dose, hypertensive crisis and others), the candidate variables, the influence map and the recommendation system are in [calculations_extended.md](calculations_extended.md). They are implemented in [calculations.py](calculations.py) and tested in [test_calculations.py](test_calculations.py).
+
+The key names used in this file are the original database column names. The members of the `Characteristic` enum in [Caracteristici.py](Caracteristici.py), which the code uses, are:
+
+| Key in this file | `Characteristic` member |
+|---|---|
+| `VARSTA` | `AGE` |
+| `MASA_CORPORALA` | `BODY_WEIGHT` |
+| `INALTIME` | `HEIGHT` |
+| `INDICE_MASA_CORPORALA` | `BODY_MASS_INDEX` |
+| `PULS_MEDIU` | `AVERAGE_HEART_RATE` |
+| `PRESIUNE_SISTOLICA` | `SYSTOLIC_BLOOD_PRESSURE` |
+| `PRESIUNE_DIASTOLICA` | `DIASTOLIC_BLOOD_PRESSURE` |
+| `PROCENT_MASA_MUSCULARA` | `MUSCLE_MASS_PERCENTAGE` |
+| `PROCENT_GRASIME` | `BODY_FAT_PERCENTAGE` |
+| `NIVEL_STRES` | `STRESS_LEVEL` |
+| `NIVELE_RADIATIE` | `MISSION_RADIATION_LEVEL` |
+| `DENSITATE_OSOASA_CALCIU` | `BONE_DENSITY_CALCIUM` |
+| `GLICEMIE` | `BLOOD_GLUCOSE` |
+| `ORE_SOMN` | `SLEEP_HOURS` |
+
 ## Open decisions
 
 1. Is `INDICE_MASA_CORPORALA` measured or derived?
