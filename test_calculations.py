@@ -240,12 +240,16 @@ def test_load_astronauts_reads_back_what_was_saved(tmp_path):
     assert len(loaded[("Marin", "Andrei")]) == len(CHARACTERISTIC_DEFINITIONS)
 
 
-def test_load_astronauts_returns_none_for_columns_missing_from_an_old_table(tmp_path):
-    with closing(sqlite3.connect(tmp_path / "old.db")) as conn:
-        conn.execute("CREATE TABLE astronauti (id INTEGER PRIMARY KEY, nume TEXT, prenume TEXT, varsta REAL)")
-        conn.execute("INSERT INTO astronauti (nume, prenume, varsta) VALUES ('Stan', 'Cristian', 42)")
+def test_load_astronauts_returns_none_when_no_measurement_exists(tmp_path):
+    with closing(sqlite3.connect(tmp_path / "unmeasured.db")) as conn:
+        create_table(conn)
+        conn.execute(
+            "INSERT INTO astronauts (first_name, last_name, age, height, weight) "
+            "VALUES ('Cristian', 'Stan', 42, 178, 80)"
+        )
         loaded = calc.load_astronauts(conn)
     values = loaded[("Stan", "Cristian")]
-    assert values[Characteristic.AGE] is None
-    assert values[Characteristic.BODY_WEIGHT] is None
+    assert values[Characteristic.AGE] == 42
+    assert values[Characteristic.BODY_WEIGHT] == 80
+    assert values[Characteristic.BODY_MASS_INDEX] is None
     assert len(values) == len(CHARACTERISTIC_DEFINITIONS)

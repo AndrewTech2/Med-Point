@@ -1,8 +1,7 @@
 import sqlite3
-import tempfile
-from pathlib import Path
 
 import analysis
+from Caracteristici import create_table
 
 
 def test_evaluate_pulse_thresholds():
@@ -41,19 +40,27 @@ def test_analyze_row_ignores_missing_optional_fields_and_sets_overall_status():
     assert result["Overall Status"] == "Healthy"
 
 
-def test_migrate_database_adds_missing_columns():
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        db_path = Path(tmp_dir) / "test.db"
-        conn = sqlite3.connect(db_path)
+def test_load_data_reads_latest_measurement_from_english_schema(tmp_path):
+    db_path = tmp_path / "test.db"
+    with sqlite3.connect(db_path) as conn:
+        create_table(conn)
         conn.execute(
-            "CREATE TABLE astronauti (id INTEGER PRIMARY KEY AUTOINCREMENT, nume TEXT, prenume TEXT, puls_mediu REAL, presiune_sistolica REAL, indice_masa_corporala REAL)"
+            """INSERT INTO astronauts (first_name, last_name, age, height, weight)
+            VALUES ('Andrei', 'Marin', 34, 180, 78)"""
         )
-        conn.commit()
-        conn.close()
+        astronaut_id = conn.execute("SELECT id FROM astronauts").fetchone()[0]
+        conn.execute(
+            """INSERT INTO measurement_history (
+                astronaut_id, average_pulse, systolic_pressure, bmi,
+                radiation_levels, bone_density
+            ) VALUES (?, 72, 118, 22.5, 40, 1.1)""",
+            (astronaut_id,),
+        )
 
-        analysis.migrate_database(db_path)
-
-        with sqlite3.connect(db_path) as conn:
-            columns = [row[1] for row in conn.execute("PRAGMA table_info(astronauti)").fetchall()]
-            assert analysis.RADIATION_COLUMN in columns
-            assert analysis.BONE_DENSITY_COLUMN in columns
+    row = analysis.load_data(db_path).iloc[0]
+    assert row[analysis.FIRST_NAME_COLUMN] == "Andrei"
+    assert row[analysis.LAST_NAME_COLUMN] == "Marin"
+    result = analysis.analyze_row(row)
+    assert result["Pulse"] == "Healthy"
+    assert result["Radiation"] == "Healthy"
+    assert result["Bone Density"] == "Healthy"

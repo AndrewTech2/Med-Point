@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-DB_PATH = Path(__file__).with_name("astronauti.db")
+DB_PATH = Path(__file__).with_name("astronauts.db")
 MAX_NAME_LENGTH = 50
 
 # Maximum acceptable difference between entered BMI and BMI calculated from weight and height.
@@ -68,6 +68,23 @@ CHARACTERISTIC_DEFINITIONS: tuple[CharacteristicDefinition, ...] = (
     CharacteristicDefinition(Characteristic.BLOOD_GLUCOSE, "mg/dL", 40, 300),
     CharacteristicDefinition(Characteristic.SLEEP_HOURS, "hours", 2, 12),
 )
+
+CHARACTERISTIC_COLUMNS = {
+    Characteristic.AGE: "age",
+    Characteristic.BODY_WEIGHT: "weight",
+    Characteristic.HEIGHT: "height",
+    Characteristic.BODY_MASS_INDEX: "bmi",
+    Characteristic.AVERAGE_HEART_RATE: "average_pulse",
+    Characteristic.SYSTOLIC_BLOOD_PRESSURE: "systolic_pressure",
+    Characteristic.DIASTOLIC_BLOOD_PRESSURE: "diastolic_pressure",
+    Characteristic.MUSCLE_MASS_PERCENTAGE: "muscle_mass_percentage",
+    Characteristic.BODY_FAT_PERCENTAGE: "body_fat_percentage",
+    Characteristic.STRESS_LEVEL: "stress_level",
+    Characteristic.MISSION_RADIATION_LEVEL: "radiation_levels",
+    Characteristic.BONE_DENSITY_CALCIUM: "bone_density",
+    Characteristic.BLOOD_GLUCOSE: "glucose",
+    Characteristic.SLEEP_HOURS: "sleep_hours",
+}
 
 
 def format_limits(definition: CharacteristicDefinition) -> str:
@@ -163,7 +180,7 @@ def introduce_characteristics() -> dict[Characteristic, float]:
 
 
 def column_name(characteristic: Characteristic) -> str:
-    return characteristic.name.lower()
+    return CHARACTERISTIC_COLUMNS[characteristic]
 
 
 def read_name(label: str) -> str:
@@ -180,46 +197,46 @@ def read_name(label: str) -> str:
             return text.title()
 
 
-def update_schema(conn: sqlite3.Connection) -> None:
-    """Add the new columns to an existing table without destroying the data."""
-    existing_columns = {
-        row[1] for row in conn.execute("PRAGMA table_info(astronauti)").fetchall()
-    }
-    for definition in CHARACTERISTIC_DEFINITIONS:
-        new_column_name = column_name(definition.characteristic)
-        if new_column_name in existing_columns:
-            continue
-        with conn:
-            conn.execute(
-                f"ALTER TABLE astronauti ADD COLUMN {new_column_name} REAL "
-                f"CHECK ({new_column_name} BETWEEN {definition.minimum:g} AND {definition.maximum:g})"
-            )
-
-
 def create_table(conn: sqlite3.Connection) -> None:
-    """Create the table; the limits from CHARACTERISTIC_DEFINITIONS are enforced in the database as well."""
-    columns = ",\n    ".join(
-        f"{column_name(definition.characteristic)} REAL NOT NULL "
-        f"CHECK ({column_name(definition.characteristic)} "
-        f"BETWEEN {definition.minimum:g} AND {definition.maximum:g})"
-        for definition in CHARACTERISTIC_DEFINITIONS
-    )
+    """Create the English-schema tables if they do not already exist."""
     with conn:
         conn.execute(
-            f"""CREATE TABLE IF NOT EXISTS astronauti (
+            """CREATE TABLE IF NOT EXISTS astronauts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nume TEXT NOT NULL,
-    prenume TEXT NOT NULL,
-    {columns},
-    UNIQUE (nume, prenume)
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    age INTEGER,
+    height REAL,
+    weight REAL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (first_name, last_name)
 )"""
         )
-    update_schema(conn)
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS measurement_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    astronaut_id INTEGER NOT NULL,
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    average_pulse REAL,
+    systolic_pressure REAL,
+    diastolic_pressure REAL,
+    bmi REAL,
+    glucose REAL,
+    sleep_hours REAL,
+    stress_level REAL,
+    muscle_mass_percentage REAL,
+    body_fat_percentage REAL,
+    radiation_levels REAL,
+    bone_density REAL,
+    FOREIGN KEY (astronaut_id) REFERENCES astronauts (id) ON DELETE CASCADE
+)"""
+        )
 
 
 def astronaut_exists(conn: sqlite3.Connection, last_name: str, first_name: str) -> bool:
     row = conn.execute(
-        "SELECT 1 FROM astronauti WHERE nume = ? AND prenume = ?", (last_name, first_name)
+        "SELECT 1 FROM astronauts WHERE last_name = ? AND first_name = ?",
+        (last_name, first_name),
     ).fetchone()
     return row is not None
 
@@ -230,17 +247,46 @@ def save_astronaut(
     first_name: str,
     values: dict[Characteristic, float],
 ) -> None:
-    """Insert the astronaut or update their values if they already exist."""
-    columns = [column_name(definition.characteristic) for definition in CHARACTERISTIC_DEFINITIONS]
-    column_list = ", ".join(["nume", "prenume", *columns])
-    placeholders = ", ".join("?" * (len(columns) + 2))
-    updates = ", ".join(f"{column} = excluded.{column}" for column in columns)
-    params = (last_name, first_name, *(values[definition.characteristic] for definition in CHARACTERISTIC_DEFINITIONS))
+    """Upsert astronaut demographics and append a measurement record."""
+    age = values[Characteristic.AGE]
+    height = values[Characteristic.HEIGHT]
+    weight = values[Characteristic.BODY_WEIGHT]
     with conn:
+        existing_astronaut = conn.execute(
+            "SELECT id FROM astronauts WHERE first_name = ? AND last_name = ?",
+            (first_name, last_name),
+        ).fetchone()
+        if existing_astronaut is None:
+            cursor = conn.execute(
+                """INSERT INTO astronauts (first_name, last_name, age, height, weight)
+                VALUES (?, ?, ?, ?, ?)""",
+                (first_name, last_name, age, height, weight),
+            )
+            astronaut_id = cursor.lastrowid
+        else:
+            astronaut_id = existing_astronaut[0]
+            conn.execute(
+                """UPDATE astronauts SET age = ?, height = ?, weight = ?
+                WHERE id = ?""",
+                (age, height, weight, astronaut_id),
+            )
+        measurement_characteristics = [
+            definition.characteristic
+            for definition in CHARACTERISTIC_DEFINITIONS
+            if definition.characteristic
+            not in (Characteristic.AGE, Characteristic.BODY_WEIGHT, Characteristic.HEIGHT)
+        ]
+        measurement_columns = [
+            column_name(characteristic) for characteristic in measurement_characteristics
+        ]
+        columns_sql = ", ".join(["astronaut_id", *measurement_columns])
+        placeholders = ", ".join("?" for _ in range(len(measurement_columns) + 1))
+        measurement_values = tuple(
+            values[characteristic] for characteristic in measurement_characteristics
+        )
         conn.execute(
-            f"INSERT INTO astronauti ({column_list}) VALUES ({placeholders}) "
-            f"ON CONFLICT(nume, prenume) DO UPDATE SET {updates}",
-            params,
+            f"INSERT INTO measurement_history ({columns_sql}) VALUES ({placeholders})",
+            (astronaut_id, *measurement_values),
         )
 
 

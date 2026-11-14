@@ -382,22 +382,42 @@ def calculate_from_characteristics(
 def load_astronauts(
     conn: sqlite3.Connection,
 ) -> dict[tuple[str, str], dict[Characteristic, float | None]]:
-    """Read every astronaut from the astronauti table: {(last_name, first_name): values}.
-
-    A value is None when the column is empty (e.g. rows saved before the English
-    columns were added). Such astronauts must be skipped by the calculations.
-    """
-    existing = {row[1] for row in conn.execute("PRAGMA table_info(astronauti)")}
-    names = [column_name(d.characteristic) for d in CHARACTERISTIC_DEFINITIONS]
-    present = [name for name in names if name in existing]
-    select_list = ", ".join(["nume", "prenume", *present])
-    rows = conn.execute(f"SELECT {select_list} FROM astronauti ORDER BY id").fetchall()
+    """Read each astronaut and their latest measurement record."""
+    demographic_characteristics = {
+        Characteristic.AGE: "age",
+        Characteristic.BODY_WEIGHT: "weight",
+        Characteristic.HEIGHT: "height",
+    }
+    selections = []
+    for definition in CHARACTERISTIC_DEFINITIONS:
+        characteristic = definition.characteristic
+        if characteristic in demographic_characteristics:
+            selections.append(
+                f"a.{demographic_characteristics[characteristic]} AS "
+                f"{column_name(characteristic)}"
+            )
+        else:
+            selections.append(
+                f"m.{column_name(characteristic)} AS {column_name(characteristic)}"
+            )
+    rows = conn.execute(
+        f"""SELECT a.last_name, a.first_name, {", ".join(selections)}
+        FROM astronauts AS a
+        LEFT JOIN measurement_history AS m
+            ON m.id = (
+                SELECT latest.id
+                FROM measurement_history AS latest
+                WHERE latest.astronaut_id = a.id
+                ORDER BY latest.recorded_at DESC, latest.id DESC
+                LIMIT 1
+            )
+        ORDER BY a.id"""
+    ).fetchall()
     result: dict[tuple[str, str], dict[Characteristic, float | None]] = {}
     for row in rows:
-        stored = dict(zip(present, row[2:]))
         result[(row[0], row[1])] = {
-            definition.characteristic: stored.get(name)
-            for definition, name in zip(CHARACTERISTIC_DEFINITIONS, names)
+            definition.characteristic: row[index + 2]
+            for index, definition in enumerate(CHARACTERISTIC_DEFINITIONS)
         }
     return result
 

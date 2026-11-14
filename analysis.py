@@ -4,25 +4,16 @@ from pathlib import Path
 import pandas as pd
 
 
-# Names used by the existing database schema (the schema itself uses Romanian identifiers).
-DB_FILE = "astronauti.db"
-TABLE_NAME = "astronauti"
-LAST_NAME_COLUMN = "nume"
-FIRST_NAME_COLUMN = "prenume"
-PULSE_COLUMN = "puls_mediu"
-SYSTOLIC_COLUMN = "presiune_sistolica"
-BMI_COLUMN = "indice_masa_corporala"
-RADIATION_COLUMN = "nivele_radiatie"
-BONE_DENSITY_COLUMN = "densitate_osoasa_calciu"
-
-
-def migrate_database(db_path: str | Path = DB_FILE, table_name: str = TABLE_NAME) -> None:
-    with sqlite3.connect(db_path) as conn:
-        columns = [row[1] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()]
-        for column_name in (RADIATION_COLUMN, BONE_DENSITY_COLUMN):
-            if column_name not in columns:
-                conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} REAL")
-        conn.commit()
+DB_FILE = Path(__file__).with_name("astronauts.db")
+TABLE_NAME = "astronauts"
+MEASUREMENT_TABLE_NAME = "measurement_history"
+LAST_NAME_COLUMN = "last_name"
+FIRST_NAME_COLUMN = "first_name"
+PULSE_COLUMN = "average_pulse"
+SYSTOLIC_COLUMN = "systolic_pressure"
+BMI_COLUMN = "bmi"
+RADIATION_COLUMN = "radiation_levels"
+BONE_DENSITY_COLUMN = "bone_density"
 
 
 def evaluate_pulse(value: float | None) -> str:
@@ -102,11 +93,25 @@ def analyze_row(row: dict) -> dict:
 
 def load_data(db_path: str | Path = DB_FILE, table_name: str = TABLE_NAME) -> pd.DataFrame:
     with sqlite3.connect(db_path) as conn:
-        return pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+        return pd.read_sql_query(
+            f"""SELECT a.{FIRST_NAME_COLUMN}, a.{LAST_NAME_COLUMN},
+                       m.{PULSE_COLUMN}, m.{SYSTOLIC_COLUMN}, m.{BMI_COLUMN},
+                       m.{RADIATION_COLUMN}, m.{BONE_DENSITY_COLUMN}
+                FROM {table_name} AS a
+                LEFT JOIN {MEASUREMENT_TABLE_NAME} AS m
+                    ON m.id = (
+                        SELECT latest.id
+                        FROM {MEASUREMENT_TABLE_NAME} AS latest
+                        WHERE latest.astronaut_id = a.id
+                        ORDER BY latest.recorded_at DESC, latest.id DESC
+                        LIMIT 1
+                    )
+                ORDER BY a.id""",
+            conn,
+        )
 
 
 def main(db_path: str | Path = DB_FILE) -> None:
-    migrate_database(db_path)
     df = load_data(db_path)
 
     print("=== ASTRONAUT MEDICAL ANALYSIS REPORT ===")
