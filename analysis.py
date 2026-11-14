@@ -1,115 +1,114 @@
 import sqlite3
-from pathlib import Path
-
 import pandas as pd
 
-DB_PATH = Path(__file__).with_name("astronauti.db")
+# Conectare simpla, fara Pathlib complicat
+conn = sqlite3.connect("astronauti.db")
 
+# Hack clasic de incepator pentru migrare: incercam sa adaugam coloanele si ignoram eroarea daca exista deja
+try:
+    conn.execute("ALTER TABLE astronauti ADD COLUMN nivele_radiatie REAL")
+    conn.commit()
+except:
+    pass
 
-def migrate_database(conn: sqlite3.Connection) -> None:
-    columns = [row[1] for row in conn.execute("PRAGMA table_info(astronauti)").fetchall()]
-    if "nivele_radiatie" not in columns:
-        conn.execute(
-            "ALTER TABLE astronauti ADD COLUMN nivele_radiatie REAL"
-        )
-    if "densitate_osoasa_calciu" not in columns:
-        conn.execute(
-            "ALTER TABLE astronauti ADD COLUMN densitate_osoasa_calciu REAL"
-        )
+try:
+    conn.execute("ALTER TABLE astronauti ADD COLUMN densitate_osoasa_calciu REAL")
+    conn.commit()
+except:
+    pass
 
+df = pd.read_sql_query("SELECT * FROM astronauti", conn)
+conn.close()
 
-def evaluate_pulse(value: float) -> str:
-    if value is None:
-        return "Unknown"
-    if value < 50 or value > 115:
-        return "Critical"
-    if (50 <= value < 60) or (100 < value <= 115):
-        return "Warning"
-    return "Healthy"
+print("=== ASTRONAUT MEDICAL ANALYSIS REPORT ===")
 
-
-def evaluate_systolic(value: float) -> str:
-    if value is None:
-        return "Unknown"
-    if value < 90 or value >= 140:
-        return "Critical"
-    if 120 < value <= 139:
-        return "Warning"
-    return "Healthy"
-
-
-def evaluate_bmi(value: float) -> str:
-    if value is None:
-        return "Unknown"
-    if value < 17.0 or value >= 30.0:
-        return "Critical"
-    if (17.0 <= value < 18.5) or (25.0 < value <= 29.9):
-        return "Warning"
-    return "Healthy"
-
-
-def evaluate_radiation(value: float) -> str:
-    if value is None:
-        return "Unknown"
-    if value > 100:
-        return "Critical"
-    if 50 < value <= 100:
-        return "Warning"
-    return "Healthy"
-
-
-def evaluate_bone_density(value: float) -> str:
-    if value is None:
-        return "Unknown"
-    if value < 0.7 or value > 1.6:
-        return "Critical"
-    if (0.7 <= value < 0.9) or (1.4 < value <= 1.6):
-        return "Warning"
-    return "Healthy"
-
-
-def evaluate_astronaut(row: dict) -> dict:
-    results = {
-        "Pulse": evaluate_pulse(row.get("puls_mediu")),
-        "Systolic Pressure": evaluate_systolic(row.get("presiune_sistolica")),
-        "BMI": evaluate_bmi(row.get("indice_masa_corporala")),
-    }
-    if "nivele_radiatie" in row:
-        results["Radiation"] = evaluate_radiation(row.get("nivele_radiatie"))
-    if "densitate_osoasa_calciu" in row:
-        results["Bone Density"] = evaluate_bone_density(row.get("densitate_osoasa_calciu"))
-    return results
-
-
-def overall_status(results: dict) -> str:
-    active_statuses = [status for status in results.values() if status != "Unknown"]
-    if "Critical" in active_statuses:
-        return "Critical"
-    if "Warning" in active_statuses:
-        return "Warning"
-    return "Healthy"
-
-
-def main() -> None:
-    with sqlite3.connect(DB_PATH) as conn:
-        migrate_database(conn)
-        df = pd.read_sql_query("SELECT * FROM astronauti", conn)
-
-    print("=== ASTRONAUT MEDICAL ANALYSIS REPORT ===")
-    if df.empty:
-        print("No astronauts found in database.")
-        return
-
-    for _, row in df.iterrows():
-        full_name = f"{row['nume']} {row['prenume']}"
-        results = evaluate_astronaut(row)
-        global_status = overall_status(results)
+if df.empty:
+    print("No astronauts found in database.")
+else:
+    for index, row in df.iterrows():
+        # Concatenare simpla de string-uri
+        full_name = row['nume'] + " " + row['prenume']
         print(f"\nAstronaut: {full_name}")
-        for indicator, status in results.items():
-            print(f"  - {indicator}: {status}")
+        
+        # O multime de blocuri repetitive copiate si lipite (specific pentru codul de incepator)
+        
+        # 1. Pulse check
+        puls = row['puls_mediu']
+        if pd.isna(puls):
+            pulse_status = "Unknown"
+        elif puls < 50 or puls > 115:
+            pulse_status = "Critical"
+        elif (50 <= puls < 60) or (100 < puls <= 115):
+            pulse_status = "Warning"
+        else:
+            pulse_status = "Healthy"
+            
+        print(f"  - Pulse: {pulse_status}")
+
+        # 2. Systolic check
+        sys_val = row['presiune_sistolica']
+        if pd.isna(sys_val):
+            sys_status = "Unknown"
+        elif sys_val < 90 or sys_val >= 140:
+            sys_status = "Critical"
+        elif sys_val > 120 and sys_val <= 139:
+            sys_status = "Warning"
+        else:
+            sys_status = "Healthy"
+            
+        print(f"  - Systolic Pressure: {sys_status}")
+
+        # 3. BMI check
+        bmi_val = row['indice_masa_corporala']
+        if pd.isna(bmi_val):
+            bmi_status = "Unknown"
+        elif bmi_val < 17.0 or bmi_val >= 30.0:
+            bmi_status = "Critical"
+        elif (17.0 <= bmi_val < 18.5) or (25.0 < bmi_val <= 29.9):
+            bmi_status = "Warning"
+        else:
+            bmi_status = "Healthy"
+            
+        print(f"  - BMI: {bmi_status}")
+
+        # Tinem minte statusurile intr-o lista simpla
+        statuses = [pulse_status, sys_status, bmi_status]
+        
+        # Verificam coloanele optionale manual, direct in bucla
+        if 'nivele_radiatie' in row and not pd.isna(row['nivele_radiatie']):
+            rad = row['nivele_radiatie']
+            if rad > 100:
+                rad_status = "Critical"
+            elif rad > 50 and rad <= 100:
+                rad_status = "Warning"
+            else:
+                rad_status = "Healthy"
+            print(f"  - Radiation: {rad_status}")
+            statuses.append(rad_status)
+
+        if 'densitate_osoasa_calciu' in row and not pd.isna(row['densitate_osoasa_calciu']):
+            bone = row['densitate_osoasa_calciu']
+            if bone < 0.7 or bone > 1.6:
+                bone_status = "Critical"
+            elif (0.7 <= bone < 0.9) or (1.4 < bone <= 1.6):
+                bone_status = "Warning"
+            else:
+                bone_status = "Healthy"
+            print(f"  - Bone Density: {bone_status}")
+            statuses.append(bone_status)
+
+        # Calcularea statusului global cu un for clasic in loc de list comprehension avansat
+        active_statuses = []
+        for s in statuses:
+            if s != "Unknown":
+                active_statuses.append(s)
+        
+        if "Critical" in active_statuses:
+            global_status = "Critical"
+        elif "Warning" in active_statuses:
+            global_status = "Warning"
+        else:
+            global_status = "Healthy"
+            
         print(f"  --> Overall Status: [{global_status}]")
         print("-" * 40)
-
-
-if __name__ == "__main__":
-    main()
