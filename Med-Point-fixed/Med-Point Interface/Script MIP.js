@@ -164,25 +164,123 @@ function loadModel(viewer) {
     const FADE_MS = 500;        // fade duration
 
     let baseColors = [];        // original colour of each material
+    let alphaModes = [];        // original alpha mode of each material
     let currentAlpha = 1;
     let targetAlpha = 1;
     let fadeFrame = 0;
 
+    /* -----------------------------------
+       BODY HEALTH COLOURS
+       The astronaut is split into regions. Each region can be tinted
+       by a 0-100 score: healthy parts stay uncoloured; unhealthy ones turn
+       yellow, then orange, then red as the condition becomes critical.
+       ----------------------------------- */
+
+    const REGIONS = ["head", "torso", "pack", "armLeft", "armRight", "legLeft", "legRight"];
+
+    // Names that can be passed in addition to the single regions.
+    const REGION_GROUPS = {
+        arms: ["armLeft", "armRight"],
+        legs: ["legLeft", "legRight"]
+    };
+
+    // Score thresholds. At or above HEALTHY_FROM the part keeps its normal,
+    // uncoloured look. Below it the colour moves yellow -> orange -> red.
+    const HEALTHY_FROM = 75;
+    const HEALTH_STOPS = [          // score, colour (sRGB)
+        [60, [242, 207,  29]],      // yellow  - slightly off
+        [40, [242, 140,  40]],      // orange  - concerning
+        [20, [229,  72,  77]]       // red     - critical (this and below)
+    ];
+
+    const healthScores = {};        // region -> 0-100 (absent = no data)
+
+    function srgbToLinear(channel) {
+        const c = channel / 255;
+        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+
+    // Returns a linear RGB tint, or null when the part is healthy (no colouring).
+    // "base" is the part's normal colour; the tint fades in from it.
+    function healthColor(score, base) {
+        const value = Math.max(0, Math.min(100, score));
+        if (value >= HEALTHY_FROM) return null;
+
+        const toLinear = (c) => c.map(srgbToLinear);
+        const mix = (from, to, t) => from.map((c, k) => c + (to[k] - c) * t);
+
+        // Between "healthy" and the first (yellow) stop.
+        const [firstScore, firstColor] = HEALTH_STOPS[0];
+        if (value > firstScore) {
+            const t = (HEALTHY_FROM - value) / (HEALTHY_FROM - firstScore);
+            return mix(base.slice(0, 3), toLinear(firstColor), t);
+        }
+
+        // Between the coloured stops, then flat red at the bottom.
+        for (let i = 1; i < HEALTH_STOPS.length; i++) {
+            const [lo, cLo] = HEALTH_STOPS[i];
+            const [hi, cHi] = HEALTH_STOPS[i - 1];
+            if (value >= lo) {
+                return mix(toLinear(cHi), toLinear(cLo), (hi - value) / (hi - lo));
+            }
+        }
+        return toLinear(HEALTH_STOPS[HEALTH_STOPS.length - 1][1]);
+    }
+
     function captureMaterials() {
         const materials = viewer.model?.materials || [];
         baseColors = materials.map((m) => [...m.pbrMetallicRoughness.baseColorFactor]);
+        alphaModes = materials.map((m) => m.getAlphaMode());
     }
 
+    // Paints every material: its health colour (if any) at the current opacity.
     function applyAlpha(alpha) {
         const materials = viewer.model?.materials || [];
         materials.forEach((material, i) => {
             const base = baseColors[i] || [1, 1, 1, 1];
-            material.setAlphaMode("BLEND");
+            const region = material.name.replace(/^region_/, "");
+            const score = healthScores[region];
+            const tint = score === undefined ? null : healthColor(score, base);
+            const rgb = tint || base;
+
+            // Only use blending while actually transparent, so the solid
+            // astronaut keeps its normal, artefact-free rendering.
+            material.setAlphaMode(alpha < 0.999 ? "BLEND" : (alphaModes[i] || "OPAQUE"));
             material.pbrMetallicRoughness.setBaseColorFactor(
-                [base[0], base[1], base[2], base[3] * alpha]
+                [rgb[0], rgb[1], rgb[2], base[3] * alpha]
             );
         });
     }
+
+    function refreshColors() {
+        if (!viewer.loaded || !viewer.model) return;
+        if (!baseColors.length) captureMaterials();
+        applyAlpha(currentAlpha);
+    }
+
+    function updateLegend() {
+        const legend = document.getElementById("bodyLegend");
+        if (legend) legend.hidden = Object.keys(healthScores).length === 0;
+    }
+
+    // part: a region name, "arms" or "legs". score: 0-100, or null to clear.
+    function setBodyPartHealth(part, score) {
+        const targets = REGION_GROUPS[part] || (REGIONS.includes(part) ? [part] : []);
+        const numeric = Number(score);
+
+        targets.forEach((region) => {
+            if (score === null || score === undefined || !Number.isFinite(numeric)) {
+                delete healthScores[region];
+            } else {
+                healthScores[region] = Math.max(0, Math.min(100, numeric));
+            }
+        });
+
+        refreshColors();
+        updateLegend();
+    }
+
+    window.MedPointBody = { setBodyPartHealth, regions: REGIONS };
 
     function fadeTo(target) {
         if (!viewer.loaded || !viewer.model) return;
@@ -211,6 +309,7 @@ function loadModel(viewer) {
         currentAlpha = 1;
         targetAlpha = 1;
         viewer.classList.remove("is-blurred");
+        refreshColors();    // apply any scores that arrived before the model
     });
 
     /* HIT BOX
@@ -333,6 +432,16 @@ function updateMetricProgress(elementId, value) {
 
     const label = bar.parentElement?.querySelector("strong");
     if (label) label.textContent = `${Math.round(bounded)}%`;
+
+    // Keep the astronaut's colours in step with the summary bars.
+    const BAR_TO_BODY = {
+        progressSleep: "head",          // sleep      -> head
+        progressBoneDensity: "legs",    // bone       -> legs
+        progressVO2: "pack"             // VO2        -> oxygen pack
+    };
+    if (BAR_TO_BODY[elementId]) {
+        window.MedPointBody?.setBodyPartHealth(BAR_TO_BODY[elementId], bounded);
+    }
 }
 
 /* -----------------------------------
@@ -348,9 +457,18 @@ function setVital(elementId, text, unitText) {
     element.replaceChildren(document.createTextNode(`${text} `), unit);
 }
 
+// Heart rate -> torso score: 100 inside the normal resting range (55-85 BPM),
+// falling to 0 at 35 BPM or 130 BPM. Adjust to taste.
+function heartRateScore(bpm) {
+    if (bpm >= 55 && bpm <= 85) return 100;
+    if (bpm < 55) return Math.max(0, ((bpm - 35) / 20) * 100);
+    return Math.max(0, ((130 - bpm) / 45) * 100);
+}
+
 function updateVitals({ bpm, sleepHours } = {}) {
     if (bpm !== undefined && Number.isFinite(Number(bpm))) {
         setVital("bpmValue", Number(bpm), "BPM");
+        window.MedPointBody?.setBodyPartHealth("torso", heartRateScore(Number(bpm)));
     }
 
     if (sleepHours !== undefined && Number.isFinite(Number(sleepHours))) {
@@ -367,7 +485,10 @@ function updateGraphSummary({ avgHr, recovery } = {}) {
     const rec = document.getElementById("recoveryValue");
 
     if (hr && Number.isFinite(Number(avgHr))) hr.textContent = `${Number(avgHr)} BPM`;
-    if (rec && Number.isFinite(Number(recovery))) rec.textContent = `${Math.round(Number(recovery))}%`;
+    if (rec && Number.isFinite(Number(recovery))) {
+        rec.textContent = `${Math.round(Number(recovery))}%`;
+        window.MedPointBody?.setBodyPartHealth("arms", Number(recovery));   // recovery -> arms
+    }
 }
 
 // Draws a smooth line from an array of numbers (any range).
@@ -446,7 +567,17 @@ async function loadHealthSuggestions() {
    PUBLIC DASHBOARD FUNCTIONS
    ----------------------------------- */
 
+// Colour body parts directly, e.g.
+// updateBodyHealth({ head: 82, torso: 64, pack: 40, arms: 90, legs: 55 })
+// Use null to clear a part. Also accepts armLeft, armRight, legLeft, legRight.
+function updateBodyHealth(scores = {}) {
+    Object.entries(scores).forEach(([part, score]) => {
+        window.MedPointBody?.setBodyPartHealth(part, score);
+    });
+}
+
 window.MedPointDashboard = {
+    updateBodyHealth,
     updateHealthSuggestions,
     updateMetricProgress,
     updateVitals,
