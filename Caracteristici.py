@@ -1,8 +1,8 @@
-"""Caracteristicile necesare pentru fiecare astronaut.
+"""Required characteristics for each astronaut.
 
-Lista provine din README.md ("Caracteristicile necesare").
-Fiecare caracteristică are limite minime și maxime plauzibile pentru un om adult,
-iar valorile introduse sunt verificate și între ele (coerență).
+The list comes from README.md ("Required characteristics").
+Each characteristic has minimum and maximum plausible limits for an adult,
+and the entered values are checked against each other for consistency.
 """
 
 import sqlite3
@@ -12,177 +12,197 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-CALE_DB = Path(__file__).with_name("astronauti.db")
-LUNGIME_MAXIMA_NUME = 50
+DB_PATH = Path(__file__).with_name("astronauti.db")
+MAX_NAME_LENGTH = 50
 
-# Diferența maximă acceptată între IMC introdus și IMC calculat din masă și înălțime.
-TOLERANTA_IMC = 1.0
-# Mușchii + grăsimea nu pot fi aproape tot corpul (oase, organe, apă etc.).
-PROCENT_MAXIM_MUSCHI_PLUS_GRASIME = 90.0
-
-
-class Caracteristica(Enum):
-    VARSTA = "Vârstă"
-    MASA_CORPORALA = "Masă corporală"
-    INALTIME = "Înălțime"
-    INDICE_MASA_CORPORALA = "Indicele de masă corporală"
-    PULS_MEDIU = "Pulsul mediu"
-    PRESIUNE_SISTOLICA = "Presiunea arterială sistolică"
-    PRESIUNE_DIASTOLICA = "Presiunea arterială diastolică"
-    PROCENT_MASA_MUSCULARA = "Procent de masă musculară"
-    PROCENT_GRASIME = "Procent de grăsime"
-    NIVEL_STRES = "Niveluri de stres"
-    GLICEMIE = "Glicemia din sânge"
-    ORE_SOMN = "Orele petrecute dormind"
+# Maximum acceptable difference between entered BMI and BMI calculated from weight and height.
+BMI_TOLERANCE = 1.0
+# Muscle + fat cannot make up almost the entire body (bones, organs, water, etc.).
+MAX_MUSCLE_PLUS_FAT_PERCENTAGE = 90.0
 
 
-@dataclass(frozen=True)
-class DefinitieCaracteristica:
-    caracteristica: Caracteristica
-    unitate: str
-    minim: float
-    maxim: float
+class Characteristic(Enum):
+    AGE = "Age"
+    BODY_WEIGHT = "Body weight"
+    HEIGHT = "Height"
+    BODY_MASS_INDEX = "Body mass index"
+    AVERAGE_HEART_RATE = "Average heart rate"
+    SYSTOLIC_BLOOD_PRESSURE = "Systolic blood pressure"
+    DIASTOLIC_BLOOD_PRESSURE = "Diastolic blood pressure"
+    MUSCLE_MASS_PERCENTAGE = "Muscle mass percentage"
+    BODY_FAT_PERCENTAGE = "Body fat percentage"
+    STRESS_LEVEL = "Stress level"
+    MISSION_RADIATION_LEVEL = "Mission radiation exposure level"
+    BONE_DENSITY_CALCIUM = "Bone density (calcium)"
+    BLOOD_GLUCOSE = "Blood glucose"
+    SLEEP_HOURS = "Sleep duration"
 
 
 @dataclass(frozen=True)
-class Incoerenta:
-    mesaj: str
-    campuri: tuple[Caracteristica, ...]
+class CharacteristicDefinition:
+    characteristic: Characteristic
+    unit: str
+    minimum: float
+    maximum: float
 
 
-DEFINITII: tuple[DefinitieCaracteristica, ...] = (
-    DefinitieCaracteristica(Caracteristica.VARSTA, "ani", 18, 70),
-    DefinitieCaracteristica(Caracteristica.MASA_CORPORALA, "kg", 40, 150),
-    DefinitieCaracteristica(Caracteristica.INALTIME, "cm", 140, 210),
-    DefinitieCaracteristica(Caracteristica.INDICE_MASA_CORPORALA, "kg/m²", 15, 40),
-    DefinitieCaracteristica(Caracteristica.PULS_MEDIU, "bpm", 30, 200),
-    DefinitieCaracteristica(Caracteristica.PRESIUNE_SISTOLICA, "mmHg", 70, 250),
-    DefinitieCaracteristica(Caracteristica.PRESIUNE_DIASTOLICA, "mmHg", 40, 150),
-    DefinitieCaracteristica(Caracteristica.PROCENT_MASA_MUSCULARA, "%", 20, 60),
-    DefinitieCaracteristica(Caracteristica.PROCENT_GRASIME, "%", 3, 50),
-    DefinitieCaracteristica(Caracteristica.NIVEL_STRES, "scală", 1, 10),
-    DefinitieCaracteristica(Caracteristica.GLICEMIE, "mg/dL", 40, 300),
-    DefinitieCaracteristica(Caracteristica.ORE_SOMN, "ore", 2, 12),
+@dataclass(frozen=True)
+class Inconsistency:
+    message: str
+    fields: tuple[Characteristic, ...]
+
+
+CHARACTERISTIC_DEFINITIONS: tuple[CharacteristicDefinition, ...] = (
+    CharacteristicDefinition(Characteristic.AGE, "years", 18, 70),
+    CharacteristicDefinition(Characteristic.BODY_WEIGHT, "kg", 40, 150),
+    CharacteristicDefinition(Characteristic.HEIGHT, "cm", 140, 210),
+    CharacteristicDefinition(Characteristic.BODY_MASS_INDEX, "kg/m²", 15, 40),
+    CharacteristicDefinition(Characteristic.AVERAGE_HEART_RATE, "bpm", 30, 200),
+    CharacteristicDefinition(Characteristic.SYSTOLIC_BLOOD_PRESSURE, "mmHg", 70, 250),
+    CharacteristicDefinition(Characteristic.DIASTOLIC_BLOOD_PRESSURE, "mmHg", 40, 150),
+    CharacteristicDefinition(Characteristic.MUSCLE_MASS_PERCENTAGE, "%", 20, 60),
+    CharacteristicDefinition(Characteristic.BODY_FAT_PERCENTAGE, "%", 3, 50),
+    CharacteristicDefinition(Characteristic.STRESS_LEVEL, "scale", 1, 10),
+    CharacteristicDefinition(Characteristic.MISSION_RADIATION_LEVEL, "mSv", 0.1, 200),
+    CharacteristicDefinition(Characteristic.BONE_DENSITY_CALCIUM, "g/cm²", 0.5, 1.8),
+    CharacteristicDefinition(Characteristic.BLOOD_GLUCOSE, "mg/dL", 40, 300),
+    CharacteristicDefinition(Characteristic.SLEEP_HOURS, "hours", 2, 12),
 )
 
 
-def formateaza_limite(definitie: DefinitieCaracteristica) -> str:
-    return f"{definitie.minim:g} - {definitie.maxim:g} {definitie.unitate}"
+def format_limits(definition: CharacteristicDefinition) -> str:
+    return f"{definition.minimum:g} - {definition.maximum:g} {definition.unit}"
 
 
-def este_in_limite(definitie: DefinitieCaracteristica, valoare: float) -> bool:
-    # NaN și infinit sunt respinse automat: comparațiile cu NaN sunt False.
-    return definitie.minim <= valoare <= definitie.maxim
+def is_within_limits(definition: CharacteristicDefinition, value: float) -> bool:
+    # NaN and infinity are rejected automatically: comparisons with NaN are False.
+    return definition.minimum <= value <= definition.maximum
 
 
-def citeste_valoare(definitie: DefinitieCaracteristica) -> float:
-    """Cere o valoare numerică în limitele definite, până când este validă."""
-    print(f"\nLimite: {formateaza_limite(definitie)}")
-    mesaj = f"{definitie.caracteristica.value}: "
+def read_value(definition: CharacteristicDefinition) -> float:
+    """Prompt for a numeric value within the defined limits until it is valid."""
+    print(f"\nLimits: {format_limits(definition)}")
+    prompt = f"{definition.characteristic.value}: "
     while True:
-        text = input(mesaj)
+        text = input(prompt)
         try:
-            valoare = float(text.strip().replace(",", "."))
+            value = float(text.strip().replace(",", "."))
         except ValueError:
-            print("Introduceți un număr valid.")
+            print("Please enter a valid number.")
             continue
-        if not este_in_limite(definitie, valoare):
-            print(f"Valoarea trebuie să fie între {formateaza_limite(definitie)}.")
+        if not is_within_limits(definition, value):
+            print(f"The value must be between {format_limits(definition)}.")
             continue
-        return valoare
+        return value
 
 
-def verifica_coerenta(valori: dict[Caracteristica, float]) -> list[Incoerenta]:
-    """Verifică dacă valorile sunt compatibile între ele."""
-    probleme: list[Incoerenta] = []
-    sis = valori[Caracteristica.PRESIUNE_SISTOLICA]
-    dia = valori[Caracteristica.PRESIUNE_DIASTOLICA]
-    if sis <= dia:
-        probleme.append(
-            Incoerenta(
-                "Presiunea sistolică trebuie să fie mai mare decât cea diastolică.",
-                (Caracteristica.PRESIUNE_SISTOLICA, Caracteristica.PRESIUNE_DIASTOLICA),
+def check_consistency(values: dict[Characteristic, float]) -> list[Inconsistency]:
+    """Check whether the values are compatible with each other."""
+    problems: list[Inconsistency] = []
+    systolic = values[Characteristic.SYSTOLIC_BLOOD_PRESSURE]
+    diastolic = values[Characteristic.DIASTOLIC_BLOOD_PRESSURE]
+    if systolic <= diastolic:
+        problems.append(
+            Inconsistency(
+                "Systolic pressure must be higher than diastolic pressure.",
+                (Characteristic.SYSTOLIC_BLOOD_PRESSURE, Characteristic.DIASTOLIC_BLOOD_PRESSURE),
             )
         )
 
-    masa = valori[Caracteristica.MASA_CORPORALA]
-    inaltime_m = valori[Caracteristica.INALTIME] / 100
-    imc = valori[Caracteristica.INDICE_MASA_CORPORALA]
-    imc_calculat = masa / inaltime_m**2
-    if abs(imc - imc_calculat) > TOLERANTA_IMC:
-        probleme.append(
-            Incoerenta(
-                f"IMC introdus ({imc:.1f}) nu corespunde masei și înălțimii "
-                f"(calculat: {imc_calculat:.1f}).",
+    body_weight = values[Characteristic.BODY_WEIGHT]
+    height_m = values[Characteristic.HEIGHT] / 100
+    bmi = values[Characteristic.BODY_MASS_INDEX]
+    calculated_bmi = body_weight / height_m**2
+    if abs(bmi - calculated_bmi) > BMI_TOLERANCE:
+        problems.append(
+            Inconsistency(
+                f"Entered BMI ({bmi:.1f}) does not match body weight and height "
+                f"(calculated: {calculated_bmi:.1f}).",
                 (
-                    Caracteristica.MASA_CORPORALA,
-                    Caracteristica.INALTIME,
-                    Caracteristica.INDICE_MASA_CORPORALA,
+                    Characteristic.BODY_WEIGHT,
+                    Characteristic.HEIGHT,
+                    Characteristic.BODY_MASS_INDEX,
                 ),
             )
         )
 
-    muschi = valori[Caracteristica.PROCENT_MASA_MUSCULARA]
-    grasime = valori[Caracteristica.PROCENT_GRASIME]
-    if muschi + grasime > PROCENT_MAXIM_MUSCHI_PLUS_GRASIME:
-        probleme.append(
-            Incoerenta(
-                f"Mușchi ({muschi:g}%) + grăsime ({grasime:g}%) depășesc "
-                f"{PROCENT_MAXIM_MUSCHI_PLUS_GRASIME:g}% din corp.",
+    muscle_percentage = values[Characteristic.MUSCLE_MASS_PERCENTAGE]
+    fat_percentage = values[Characteristic.BODY_FAT_PERCENTAGE]
+    if muscle_percentage + fat_percentage > MAX_MUSCLE_PLUS_FAT_PERCENTAGE:
+        problems.append(
+            Inconsistency(
+                f"Muscle ({muscle_percentage:g}%) + fat ({fat_percentage:g}%) exceed "
+                f"{MAX_MUSCLE_PLUS_FAT_PERCENTAGE:g}% of the body.",
                 (
-                    Caracteristica.PROCENT_MASA_MUSCULARA,
-                    Caracteristica.PROCENT_GRASIME,
+                    Characteristic.MUSCLE_MASS_PERCENTAGE,
+                    Characteristic.BODY_FAT_PERCENTAGE,
                 ),
             )
         )
-    return probleme
+    return problems
 
 
-def introduce_caracteristici() -> dict[Caracteristica, float]:
-    """Cere toate caracteristicile, apoi reintroduce doar câmpurile incoerente."""
-    valori = {
-        definitie.caracteristica: citeste_valoare(definitie)
-        for definitie in DEFINITII
+def introduce_characteristics() -> dict[Characteristic, float]:
+    """Ask for all characteristics, then re-enter only the inconsistent fields."""
+    values = {
+        definition.characteristic: read_value(definition)
+        for definition in CHARACTERISTIC_DEFINITIONS
     }
-    while probleme := verifica_coerenta(valori):
-        for problema in probleme:
-            print(f"Eroare: {problema.mesaj}")
-        de_reintrodus = {camp for p in probleme for camp in p.campuri}
-        print("Reintroduceți valorile implicate:")
-        for definitie in DEFINITII:
-            if definitie.caracteristica in de_reintrodus:
-                valori = {
-                    **valori,
-                    definitie.caracteristica: citeste_valoare(definitie),
+    while problems := check_consistency(values):
+        for problem in problems:
+            print(f"Error: {problem.message}")
+        fields_to_reenter = {field for problem in problems for field in problem.fields}
+        print("Please re-enter the affected values:")
+        for definition in CHARACTERISTIC_DEFINITIONS:
+            if definition.characteristic in fields_to_reenter:
+                values = {
+                    **values,
+                    definition.characteristic: read_value(definition),
                 }
-    return valori
+    return values
 
 
-def nume_coloana(caracteristica: Caracteristica) -> str:
-    return caracteristica.name.lower()
+def column_name(characteristic: Characteristic) -> str:
+    return characteristic.name.lower()
 
 
-def citeste_nume(eticheta: str) -> str:
-    """Cere un nume (litere, spații, cratime) și îl normalizează."""
+def read_name(label: str) -> str:
+    """Prompt for a name (letters, spaces, hyphens) and normalize it."""
     while True:
-        text = " ".join(input(f"{eticheta}: ").split())
+        text = " ".join(input(f"{label}: ").split())
         if not text:
-            print("Numele nu poate fi gol.")
-        elif len(text) > LUNGIME_MAXIMA_NUME:
-            print(f"Maximum {LUNGIME_MAXIMA_NUME} de caractere.")
+            print("The name cannot be empty.")
+        elif len(text) > MAX_NAME_LENGTH:
+            print(f"Maximum {MAX_NAME_LENGTH} characters.")
         elif not all(ch.isalpha() or ch in " -" for ch in text):
-            print("Folosiți doar litere, spații și cratime.")
+            print("Use only letters, spaces, and hyphens.")
         else:
             return text.title()
 
 
-def creeaza_tabel(conn: sqlite3.Connection) -> None:
-    """Creează tabelul; limitele din DEFINITII sunt impuse și în baza de date."""
-    coloane = ",\n    ".join(
-        f"{nume_coloana(d.caracteristica)} REAL NOT NULL "
-        f"CHECK ({nume_coloana(d.caracteristica)} "
-        f"BETWEEN {d.minim:g} AND {d.maxim:g})"
-        for d in DEFINITII
+def update_schema(conn: sqlite3.Connection) -> None:
+    """Add the new columns to an existing table without destroying the data."""
+    existing_columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(astronauti)").fetchall()
+    }
+    for definition in CHARACTERISTIC_DEFINITIONS:
+        new_column_name = column_name(definition.characteristic)
+        if new_column_name in existing_columns:
+            continue
+        with conn:
+            conn.execute(
+                f"ALTER TABLE astronauti ADD COLUMN {new_column_name} REAL "
+                f"CHECK ({new_column_name} BETWEEN {definition.minimum:g} AND {definition.maximum:g})"
+            )
+
+
+def create_table(conn: sqlite3.Connection) -> None:
+    """Create the table; the limits from CHARACTERISTIC_DEFINITIONS are enforced in the database as well."""
+    columns = ",\n    ".join(
+        f"{column_name(definition.characteristic)} REAL NOT NULL "
+        f"CHECK ({column_name(definition.characteristic)} "
+        f"BETWEEN {definition.minimum:g} AND {definition.maximum:g})"
+        for definition in CHARACTERISTIC_DEFINITIONS
     )
     with conn:
         conn.execute(
@@ -190,68 +210,69 @@ def creeaza_tabel(conn: sqlite3.Connection) -> None:
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nume TEXT NOT NULL,
     prenume TEXT NOT NULL,
-    {coloane},
+    {columns},
     UNIQUE (nume, prenume)
 )"""
         )
+    update_schema(conn)
 
 
-def exista_astronaut(conn: sqlite3.Connection, nume: str, prenume: str) -> bool:
-    rand = conn.execute(
-        "SELECT 1 FROM astronauti WHERE nume = ? AND prenume = ?", (nume, prenume)
+def astronaut_exists(conn: sqlite3.Connection, last_name: str, first_name: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM astronauti WHERE nume = ? AND prenume = ?", (last_name, first_name)
     ).fetchone()
-    return rand is not None
+    return row is not None
 
 
-def salveaza_astronaut(
+def save_astronaut(
     conn: sqlite3.Connection,
-    nume: str,
-    prenume: str,
-    valori: dict[Caracteristica, float],
+    last_name: str,
+    first_name: str,
+    values: dict[Characteristic, float],
 ) -> None:
-    """Inserează astronautul sau îi actualizează valorile dacă există deja."""
-    coloane = [nume_coloana(d.caracteristica) for d in DEFINITII]
-    lista_coloane = ", ".join(["nume", "prenume", *coloane])
-    semne = ", ".join("?" * (len(coloane) + 2))
-    actualizari = ", ".join(f"{c} = excluded.{c}" for c in coloane)
-    parametri = (nume, prenume, *(valori[d.caracteristica] for d in DEFINITII))
+    """Insert the astronaut or update their values if they already exist."""
+    columns = [column_name(definition.characteristic) for definition in CHARACTERISTIC_DEFINITIONS]
+    column_list = ", ".join(["nume", "prenume", *columns])
+    placeholders = ", ".join("?" * (len(columns) + 2))
+    updates = ", ".join(f"{column} = excluded.{column}" for column in columns)
+    params = (last_name, first_name, *(values[definition.characteristic] for definition in CHARACTERISTIC_DEFINITIONS))
     with conn:
         conn.execute(
-            f"INSERT INTO astronauti ({lista_coloane}) VALUES ({semne}) "
-            f"ON CONFLICT(nume, prenume) DO UPDATE SET {actualizari}",
-            parametri,
+            f"INSERT INTO astronauti ({column_list}) VALUES ({placeholders}) "
+            f"ON CONFLICT(nume, prenume) DO UPDATE SET {updates}",
+            params,
         )
 
 
-def confirma(intrebare: str) -> bool:
-    return input(f"{intrebare} (d/n): ").strip().lower() in ("d", "da")
+def confirm(question: str) -> bool:
+    return input(f"{question} (y/n): ").strip().lower() in ("y", "yes")
 
 
 def main() -> None:
-    nume = citeste_nume("Nume de familie")
-    prenume = citeste_nume("Prenume")
-    with closing(sqlite3.connect(CALE_DB)) as conn:
-        creeaza_tabel(conn)
-        if exista_astronaut(conn, nume, prenume) and not confirma(
-            "Astronautul există deja. Suprascrieți datele?"
+    last_name = read_name("Last name")
+    first_name = read_name("First name")
+    with closing(sqlite3.connect(DB_PATH)) as conn:
+        create_table(conn)
+        if astronaut_exists(conn, last_name, first_name) and not confirm(
+            "The astronaut already exists. Overwrite the data?"
         ):
-            print("Nu s-a modificat nimic.")
+            print("No changes were made.")
             return
-        valori = introduce_caracteristici()
-        salveaza_astronaut(conn, nume, prenume, valori)
-    print(f"\nDate salvate pentru {nume} {prenume} în {CALE_DB.name}:")
-    for caracteristica, valoare in valori.items():
-        print(f"  {caracteristica.value}: {valoare:g}")
+        values = introduce_characteristics()
+        save_astronaut(conn, last_name, first_name, values)
+    print(f"\nData saved for {last_name} {first_name} in {DB_PATH.name}:")
+    for characteristic, value in values.items():
+        print(f"  {characteristic.value}: {value:g}")
 
 
 if __name__ == "__main__":
-    # Evită blocarea pe terminale care nu pot afișa diacritice (ex. cp1252).
+    # Avoid blocking terminals that cannot display diacritics (e.g., cp1252).
     sys.stdout.reconfigure(errors="replace")
     try:
         main()
     except (KeyboardInterrupt, EOFError):
-        print("\nIntroducerea a fost anulată.")
+        print("\nInput was cancelled.")
         raise SystemExit(1)
-    except sqlite3.Error as eroare:
-        print(f"Eroare la baza de date: {eroare}")
+    except sqlite3.Error as error:
+        print(f"Database error: {error}")
         raise SystemExit(1)

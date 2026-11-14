@@ -1,14 +1,16 @@
-<h3>Caracteristicile necesare</h3>
+<h3>Required characteristics</h3>
 <ul>
-  <li>Vârstă</li>
-  <li>Masă corporală</li>
-  <li>Înălțime</li>
-  <li>Indicele de masă corporală</li>
-  <li>Pulsul mediu<li>
-  <li>Presiunea arterială</li>
-  <li>Procent de masă musculară</li>
-  <li>Procent de grăsime</li>
-  <li>Niveluri de stres</li>
-  <li>Glicemia din sânge</li>
-  <li>Orele petrecute dormind</li>
+  <li>Age</li>
+  <li>Body weight</li>
+  <li>Height</li>
+  <li>Body mass index</li>
+  <li>Average heart rate</li>
+  <li>Blood pressure</li>
+  <li>Muscle mass percentage</li>
+  <li>Body fat percentage</li>
+  <li>Stress level</li>
+  <li>Mission radiation exposure limit</li>
+  <li>Bone density (calcium)</li>
+  <li>Blood glucose</li>
+  <li>Sleep duration</li>
 </ul>
