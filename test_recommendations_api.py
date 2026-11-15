@@ -80,7 +80,7 @@ def test_jane_response_has_contract_keys_and_types(tmp_path, monkeypatch):
     assert response.is_json
     assert set(data) == TOP_LEVEL_KEYS
     assert data["astronaut_id"] == JANE_ID
-    assert data["name"] == "Doe Jane"
+    assert data["name"] == "Jane Doe"
     assert isinstance(data["recorded_at"], str)
     assert data["phase"] == "unknown"
     assert data["overall"] in LEVEL_BY_STATUS
@@ -180,7 +180,7 @@ def test_astronaut_without_measurements_has_null_recorded_at(tmp_path, monkeypat
 
     # Assert
     assert response.status_code == 200
-    assert data["name"] == "Nobody Empty"
+    assert data["name"] == "Empty Nobody"
     assert data["recorded_at"] is None
     assert data["overall"] == "UNKNOWN"
 
@@ -258,7 +258,7 @@ def test_load_latest_reads_demographics_and_latest_measurement(tmp_path):
         name, recorded_at, values = load_latest(conn, JANE_ID)
 
     # Assert
-    assert name == "Doe Jane"
+    assert name == "Jane Doe"
     assert recorded_at is not None
     assert values[Characteristic.AVERAGE_HEART_RATE] == 64
     assert values[Characteristic.AGE] == BASE_VALUES[Characteristic.AGE]

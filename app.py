@@ -4,6 +4,7 @@ from pathlib import Path
 
 from flask import Flask, abort, jsonify, render_template, request, send_from_directory
 
+from Caracteristici import HISTORY_EXTRAS, extra_series
 from recommendation_types import MissionPhase
 from recommendations_api import payload_for_astronaut
 
@@ -62,6 +63,7 @@ def dashboard():
 
         astronaut = None
         average_heart_rate = None
+        extras = {}
         if astronaut_id is not None:
             astronaut = conn.execute(
                 """SELECT a.id, a.first_name, a.last_name, a.age, a.height, a.weight,
@@ -85,6 +87,9 @@ def dashboard():
                 "SELECT AVG(average_pulse) FROM measurement_history WHERE astronaut_id = ?",
                 (astronaut_id,),
             ).fetchone()[0]
+            for extra in HISTORY_EXTRAS:
+                series = extra_series(conn, astronaut_id, extra)
+                extras[extra.key] = series[-1][1] if series else None
             if average_pulse is not None:
                 average_heart_rate = round(average_pulse, 1)
 
@@ -103,8 +108,8 @@ def dashboard():
         "bone_density": _format_measurement(
             latest["bone_density"] if latest else None, "g/cm²"
         ),
-        "recovery": "—",
-        "vo2": "—",
+        "recovery": _format_measurement(extras.get("HEART_RATE_RECOVERY"), "bpm"),
+        "vo2": _format_measurement(extras.get("VO2_MAX"), "mL/kg/min"),
     }
 
     return render_template(

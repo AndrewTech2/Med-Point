@@ -327,6 +327,9 @@ body::before {
 
 .legend-dot.alternate { background: var(--cool); }
 
+/* Sleep series in the dashboard preview (Recovery keeps the gold gradient). */
+.chart-line.alternate { stroke: var(--cool); }
+
 /* ------------------------------
    SUGGESTIONS AND TASKS
    ------------------------------ */
@@ -579,7 +582,8 @@ body::before {
     position: relative;
     width: clamp(14px, 1.4vw, 20px);
     height: 78px;
-    flex: 0 0 auto;
+    min-height: 40px;
+    flex: 0 1 auto; /* shrink rather than poke out of the clipped .summary-details */
     overflow: hidden;
     border: 1px solid var(--line-strong);
     border-radius: 999px;
@@ -599,6 +603,7 @@ body::before {
 }
 
 .metric-column span {
+    min-height: 2lh; /* "Bone density" wraps to 2 lines; reserve it in every column so the tubes line up */
     max-width: 100%;
     color: var(--muted);
     font-size: 0.6rem;

@@ -425,20 +425,12 @@ function updateMetricProgress(elementId, value) {
     bar.style.setProperty("--progress", `${bounded}%`);
     bar.dataset.value = String(bounded);
     bar.setAttribute("aria-valuenow", String(bounded));
-
-    const label = bar.parentElement?.querySelector("strong");
-    if (label) label.textContent = `${Math.round(bounded)}%`;
-
-    // Keep the astronaut's colours in step with the summary bars.
-    const BAR_TO_BODY = {
-        progressSleep: "head",          // sleep      -> head
-        progressBoneDensity: "legs",    // bone       -> legs
-        progressVO2: "pack"             // VO2        -> oxygen pack
-    };
-    if (BAR_TO_BODY[elementId]) {
-        window.MedPointBody?.setBodyPartHealth(BAR_TO_BODY[elementId], bounded);
-    }
 }
+
+// Sleep bar: 8 hours counts as a full bar.
+const SLEEP_FULL_HOURS = 8;
+// Bone bar: 1.3 g/cm² is the healthy calcium density reference (no existing constant in the backend).
+const BONE_HEALTHY_DENSITY = 1.3;
 
 /* -----------------------------------
    HEART RATE AND SLEEP QUANTITY
@@ -535,18 +527,33 @@ function chartPaths(values, times) {
     };
 }
 
-// Draws a smooth line from an array of numbers (any range).
-function updateChart(values) {
-    const line = document.getElementById("chartLinePath");
-    const area = document.getElementById("chartArea");
+// Preview: Recovery (bpm) and Sleep (hours) over the last 30 days. chartPaths scales each
+// series to its own min/max, so the two units can share the frame.
+const PREVIEW_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+function previewSeries(metric, start) {
+    const points = pointsInRange(metric?.points ?? [], start)
+        .filter(([, value]) => Number.isFinite(Number(value)));
+    return chartPaths(points.map(([, value]) => value), points.map(([time]) => parseTime(time)));
+}
+
+function updateChart(astronaut) {
+    const recoveryLine = document.getElementById("chartLinePath");
+    const recoveryArea = document.getElementById("chartArea");
+    const sleepLine = document.getElementById("chartSleepPath");
     const empty = document.getElementById("chartEmpty");
 
-    if (!line || !area) return;
+    if (!recoveryLine || !recoveryArea || !sleepLine) return;
 
-    const paths = chartPaths(values);
-    line.setAttribute("d", paths ? paths.line : "");
-    area.setAttribute("d", paths ? paths.area : "");
-    if (empty) empty.hidden = Boolean(paths);
+    const end = latestReading(astronaut);
+    const start = end === null ? null : end - PREVIEW_WINDOW_MS;
+    const recovery = previewSeries(astronaut.metrics.HEART_RATE_RECOVERY, start);
+    const sleep = previewSeries(astronaut.metrics.SLEEP_HOURS, start);
+
+    recoveryLine.setAttribute("d", recovery ? recovery.line : "");
+    recoveryArea.setAttribute("d", recovery ? recovery.area : "");
+    sleepLine.setAttribute("d", sleep ? sleep.line : "");
+    if (empty) empty.hidden = Boolean(recovery || sleep);
 }
 
 /* -----------------------------------
@@ -802,9 +809,18 @@ function updateStats(astronaut) {
     setVital("bpmValue", formatReading(latestValue(heartRate)), "BPM");
     setVital("sleepValue", formatReading(sleep), "hours");
     setText("summarySleepValue", withUnit(sleep, "hours"));
-    setText("summaryBoneValue", withUnit(latestValue(astronaut.metrics.BONE_DENSITY_CALCIUM), "g/cm²"));
-    setText("summaryVo2Value", "—");
-    setText("recoveryValue", "—");
+    const bone = latestValue(astronaut.metrics.BONE_DENSITY_CALCIUM);
+    const vo2 = latestValue(astronaut.metrics.VO2_MAX);
+    const vo2Start = astronaut.metrics.VO2_MAX?.points?.[0]?.[1];
+    // Missing or zero reference gives 0; updateMetricProgress clamps to 0..100.
+    const percentOf = (value, reference) => (value === null || !(reference > 0) ? 0 : value / reference * 100);
+    setText("summaryBoneValue", withUnit(bone, "g/cm²"));
+    setText("summaryVo2Value", withUnit(vo2, "mL/kg/min"));
+    updateMetricProgress("progressSleep", percentOf(sleep, SLEEP_FULL_HOURS));
+    updateMetricProgress("progressBoneDensity", percentOf(bone, BONE_HEALTHY_DENSITY));
+    // VO2 is shown as a share of the mission-start value, not an absolute scale.
+    updateMetricProgress("progressVO2", percentOf(vo2, vo2Start));
+    setText("recoveryValue", withUnit(latestValue(astronaut.metrics.HEART_RATE_RECOVERY), "bpm"));
     document.querySelectorAll(".graph-card:not([data-metric]) .graph-card-header strong")
         .forEach(strong => { strong.textContent = "—"; });
 }
@@ -858,6 +874,7 @@ function showAstronaut(id) {
     shownAstronaut = astronaut;
     updateNameSlots(astronaut);
     updateStats(astronaut);
+    updateChart(astronaut);
     if (graphGrid) {
         ensureMetricCards(astronaut);
         showRange(graphRange);

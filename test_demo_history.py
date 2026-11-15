@@ -229,3 +229,70 @@ def test_seed_database_creates_astronaut_time_index_and_is_rerunnable(tmp_path):
             )
         )
     assert "COVERING INDEX idx_measurement_history_astronaut_time" in avg_plan
+
+
+# --- VO2max and heart-rate recovery (stored beside the 14 characteristics) ---------------
+from Caracteristici import HISTORY_EXTRAS, extra_series  # noqa: E402
+from demo_history import generate_extras  # noqa: E402
+
+VO2, RECOVERY = HISTORY_EXTRAS
+
+
+def _extra_values(profile, extra):
+    return [values[extra.key] for _, values in generate_extras(profile)]
+
+
+def test_extras_cover_every_history_row_and_are_deterministic():
+    for profile in DEMO_PROFILES:
+        extras = generate_extras(profile)
+        assert [when for when, _ in extras] == [when for when, _ in _history(profile)]
+        assert extras == generate_extras(profile)
+
+
+@pytest.mark.parametrize("profile", DEMO_PROFILES, ids=lambda p: p.first_name)
+def test_extras_stay_within_limits(profile):
+    for extra in HISTORY_EXTRAS:
+        values = _extra_values(profile, extra)
+        assert all(extra.minimum <= v <= extra.maximum for v in values)
+
+
+def test_vo2_declines_roughly_five_to_fifteen_percent_over_the_mission():
+    for profile in DEMO_PROFILES:
+        extras = dict(generate_extras(profile))
+        series = [(datetime.strptime(w, TIMESTAMP_FORMAT), v[VO2.key]) for w, v in extras.items()]
+        start = min(series, key=lambda s: abs(s[0] - MISSION_START))[1]
+        end = series[-1][1]
+        assert 0.84 <= end / start <= 0.96  # about -5..-15%, minus noise at the start reading
+
+
+def test_recovery_is_healthy_and_lower_for_deconditioned_astronaut():
+    finals = {p.first_name: _extra_values(p, RECOVERY)[-1] for p in DEMO_PROFILES}
+    assert all(12 < v <= 35 for v in finals.values())
+    assert finals["Nova"] < finals["Vega"]
+
+
+def test_extras_differ_between_astronauts():
+    finals = {_extra_values(p, VO2)[-1] for p in DEMO_PROFILES}
+    assert len(finals) == len(DEMO_PROFILES)
+
+
+def test_seed_database_stores_extras_and_is_idempotent(tmp_path):
+    db = tmp_path / "demo.db"
+    with closing(sqlite3.connect(db)) as conn:
+        seed_database(conn)
+        seed_database(conn)
+        for index, profile in enumerate(DEMO_PROFILES, start=1):
+            for extra in HISTORY_EXTRAS:
+                stored = extra_series(conn, index, extra)
+                assert [v for _, v in stored] == _extra_values(profile, extra)
+
+
+def test_create_table_adds_extra_columns_to_old_database(tmp_path):
+    db = tmp_path / "old.db"
+    with closing(sqlite3.connect(db)) as conn:
+        conn.execute("CREATE TABLE measurement_history (id INTEGER PRIMARY KEY, astronaut_id INTEGER, recorded_at TEXT)")
+        assert extra_series(conn, 1, VO2) == []
+        create_table(conn)
+        create_table(conn)
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(measurement_history)")}
+    assert {VO2.column, RECOVERY.column} <= columns

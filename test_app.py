@@ -138,3 +138,28 @@ def test_js_asset_revalidates_and_returns_304_on_match(interface_dir):
     # Assert
     assert first.headers["Cache-Control"] == "no-cache"
     assert response.status_code == 304
+
+
+def test_dashboard_shows_latest_vo2_and_recovery_instead_of_dash(tmp_path, monkeypatch):
+    # Arrange
+    db = make_db(tmp_path / "h.db", [60, 61])
+    with sqlite3.connect(db) as conn:
+        conn.execute("UPDATE measurement_history SET vo2_max = 44.5, hr_recovery = 25 WHERE id = 1")
+        conn.execute("UPDATE measurement_history SET vo2_max = 43.2, hr_recovery = 24 WHERE id = 2")
+        conn.execute("UPDATE measurement_history SET hr_recovery = NULL WHERE id = 2")
+    monkeypatch.setattr("app.DATABASE_PATH", db)
+
+    # Act
+    html = app.test_client().get(f"/?astronaut_id={JANE_ID}").get_data(as_text=True)
+
+    # Assert: the newest non-null value of each metric
+    assert '<strong id="summaryVo2Value">43.2 mL/kg/min</strong>' in html
+    assert '<strong id="recoveryValue">25 bpm</strong>' in html
+
+
+def test_dashboard_shows_dash_for_vo2_and_recovery_without_data(tmp_path, monkeypatch):
+    db = make_db(tmp_path / "h.db", [60])
+    monkeypatch.setattr("app.DATABASE_PATH", db)
+    html = app.test_client().get(f"/?astronaut_id={JANE_ID}").get_data(as_text=True)
+    assert '<strong id="recoveryValue">—</strong>' in html
+    assert '<strong id="summaryVo2Value">—</strong>' in html

@@ -87,6 +87,24 @@ CHARACTERISTIC_COLUMNS = {
 }
 
 
+@dataclass(frozen=True)
+class HistoryExtra:
+    """A measurement stored and graphed per reading but not a required characteristic."""
+
+    key: str  # name used in the export and in metric_categories.js
+    label: str
+    unit: str
+    minimum: float
+    maximum: float
+    column: str
+
+
+HISTORY_EXTRAS: tuple[HistoryExtra, ...] = (
+    HistoryExtra("VO2_MAX", "VO2max", "mL/kg/min", 10, 90, "vo2_max"),
+    HistoryExtra("HEART_RATE_RECOVERY", "Heart rate recovery", "bpm", 0, 80, "hr_recovery"),
+)
+
+
 def format_limits(definition: CharacteristicDefinition) -> str:
     return f"{definition.minimum:g} - {definition.maximum:g} {definition.unit}"
 
@@ -241,6 +259,25 @@ def create_table(conn: sqlite3.Connection) -> None:
             column = column_name(characteristic)
             if column not in existing:
                 conn.execute(f"ALTER TABLE measurement_history ADD COLUMN {column} REAL")
+        for extra in HISTORY_EXTRAS:
+            if extra.column not in existing:
+                conn.execute(f"ALTER TABLE measurement_history ADD COLUMN {extra.column} REAL")
+
+
+def extra_series(
+    conn: sqlite3.Connection, astronaut_id: int, extra: HistoryExtra
+) -> list[tuple[str, float]]:
+    """(recorded_at, value) of one extra, oldest first; empty for old databases without the column."""
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(measurement_history)")}
+    if extra.column not in existing:
+        return []
+    rows = conn.execute(
+        f"""SELECT recorded_at, {extra.column} FROM measurement_history
+        WHERE astronaut_id = ? AND {extra.column} IS NOT NULL
+        ORDER BY recorded_at, id""",  # column name comes from HISTORY_EXTRAS, never from input
+        (astronaut_id,),
+    ).fetchall()
+    return [(when, value) for when, value in rows]
 
 
 def astronaut_exists(conn: sqlite3.Connection, last_name: str, first_name: str) -> bool:

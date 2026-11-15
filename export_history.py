@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from contextlib import closing
 from pathlib import Path
 
-from Caracteristici import CHARACTERISTIC_DEFINITIONS, DB_PATH
+from Caracteristici import CHARACTERISTIC_DEFINITIONS, DB_PATH, HISTORY_EXTRAS, extra_series
 from calculations import connect_read_only, printable
 from historic import list_history, summarise
 from recommendations_api import payload_for_astronaut
@@ -40,10 +40,19 @@ def build_export(conn) -> dict:
                     ],
                     "summary": summary._asdict(),
                 }
+        for extra in HISTORY_EXTRAS:
+            series = extra_series(conn, astronaut_id, extra)
+            if series:
+                metrics[extra.key] = {
+                    "label": extra.label,
+                    "unit": extra.unit,
+                    "points": [[when, value] for when, value in series],
+                    "summary": summarise([(w, {extra.key: v}) for w, v in series], extra.key)._asdict(),
+                }
         astronauts.append(
             {
                 "id": astronaut_id,
-                "name": printable(f"{last_name} {first_name}"),
+                "name": printable(f"{first_name} {last_name}"),
                 "metrics": metrics,
                 # same payload as the Flask endpoint, so the page works when opened as a file
                 "recommendations": payload_for_astronaut(conn, astronaut_id),

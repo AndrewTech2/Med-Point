@@ -83,6 +83,7 @@
                         <!-- Data paths are drawn here once real data is supplied -->
                         <path class="chart-area" id="chartArea" d=""></path>
                         <path class="chart-line" id="chartLinePath" d=""></path>
+                        <path class="chart-line alternate" id="chartSleepPath" d=""></path>
                     </svg>
                     <p class="chart-empty" id="chartEmpty">No data yet</p>
                 </div>
@@ -423,7 +424,7 @@
                     </div>
                 </article>
 
-                <article class="graph-card">
+                <article class="graph-card" data-metric="HEART_RATE_RECOVERY">
                     <div class="graph-card-header">
                         <span class="crew-member-label">Recovery</span>
                         <strong>{{ metrics.recovery }}</strong>
@@ -461,7 +462,7 @@
                     </div>
                 </article>
 
-                <article class="graph-card">
+                <article class="graph-card" data-metric="VO2_MAX">
                     <div class="graph-card-header">
                         <span class="crew-member-label">VO₂</span>
                         <strong>{{ metrics.vo2 }}</strong>

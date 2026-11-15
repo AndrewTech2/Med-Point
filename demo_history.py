@@ -20,6 +20,7 @@ from types import MappingProxyType
 from Caracteristici import (
     CHARACTERISTIC_DEFINITIONS,
     DB_PATH,
+    HISTORY_EXTRAS,
     Characteristic,
     column_name,
     create_table,
@@ -184,6 +185,20 @@ DEMO_PROFILES: tuple[DemoProfile, ...] = (
     ),
 )
 
+# VO2max (mL/kg/min) and heart-rate recovery (bpm) per seed_index: (value at MISSION_START, value at the end).
+# VO2max falls 5-14% over the mission; Nova is the most deconditioned.
+EXTRA_MISSION: Mapping[int, Mapping[str, tuple[float, float]]] = MappingProxyType(
+    {
+        0: {"VO2_MAX": (46.0, 43.5), "HEART_RATE_RECOVERY": (28, 26)},
+        1: {"VO2_MAX": (44.0, 39.5), "HEART_RATE_RECOVERY": (22, 19)},
+        2: {"VO2_MAX": (38.0, 32.5), "HEART_RATE_RECOVERY": (16, 13)},
+        3: {"VO2_MAX": (41.0, 36.5), "HEART_RATE_RECOVERY": (21, 18)},
+    }
+)
+EXTRA_PRE_MISSION_CHANGE = MappingProxyType({"VO2_MAX": -0.5, "HEART_RATE_RECOVERY": 0.0})
+EXTRA_NOISE_SD = MappingProxyType({"VO2_MAX": 0.5, "HEART_RATE_RECOVERY": 1.5})
+EXTRA_SEED_OFFSET = 1000  # own random stream, so the 14 characteristics stay identical
+
 
 # --- Schedule ----------------------------------------------------------------------------
 def _reading_times(end: datetime, offset: timedelta) -> tuple[datetime, ...]:
@@ -322,15 +337,41 @@ def generate_history(
     return tuple(rows)
 
 
+def generate_extras(
+    profile: DemoProfile, end: datetime = END
+) -> tuple[tuple[str, Mapping[str, float]], ...]:
+    """Oldest-first (recorded_at, {extra key: value}), one row per generate_history row."""
+    offset = timedelta(minutes=profile.seed_index * MINUTES_PER_ASTRONAUT_STEP)
+    timeline = Timeline(
+        history_start=end - timedelta(days=HISTORY_DAYS),
+        mission_start=end - timedelta(days=MISSION_DAYS),
+        anchor=end - offset,
+    )
+    rng = random.Random(SEED_BASE + EXTRA_SEED_OFFSET + profile.seed_index)
+    rows = []
+    for when in _reading_times(end, offset):
+        settle = _settle(when, timeline.anchor)
+        values = {}
+        for extra in HISTORY_EXTRAS:
+            pre, final = EXTRA_MISSION[profile.seed_index][extra.key]
+            level = _trend(pre, final, EXTRA_PRE_MISSION_CHANGE[extra.key], when, timeline)
+            noisy = level + rng.gauss(0.0, EXTRA_NOISE_SD[extra.key]) * settle
+            digits = 0 if extra.key == "HEART_RATE_RECOVERY" else 1
+            values[extra.key] = min(extra.maximum, max(extra.minimum, round(noisy, digits)))
+        rows.append((when.strftime(TIMESTAMP_FORMAT), MappingProxyType(values)))
+    return tuple(rows)
+
+
 # --- Database ----------------------------------------------------------------------------
 MEASUREMENT_COLUMNS: tuple[str, ...] = tuple(
     column_name(d.characteristic) for d in CHARACTERISTIC_DEFINITIONS
 )
+EXTRA_COLUMNS: tuple[str, ...] = tuple(extra.column for extra in HISTORY_EXTRAS)
 INSERT_SQL = (
     "INSERT INTO measurement_history (astronaut_id, recorded_at, "
-    + ", ".join(MEASUREMENT_COLUMNS)
+    + ", ".join(MEASUREMENT_COLUMNS + EXTRA_COLUMNS)
     + ") VALUES ("
-    + ", ".join("?" for _ in range(len(MEASUREMENT_COLUMNS) + 2))
+    + ", ".join("?" for _ in range(len(MEASUREMENT_COLUMNS) + len(EXTRA_COLUMNS) + 2))
     + ")"
 )
 
@@ -354,14 +395,22 @@ def _upsert_astronaut(conn: sqlite3.Connection, profile: DemoProfile) -> int:
 
 
 def _insert_rows(
-    conn: sqlite3.Connection, astronaut_id: int, history: Sequence[tuple[str, Mapping[Characteristic, float]]]
+    conn: sqlite3.Connection,
+    astronaut_id: int,
+    history: Sequence[tuple[str, Mapping[Characteristic, float]]],
+    extras: Sequence[tuple[str, Mapping[str, float]]],
 ) -> None:
     conn.execute("DELETE FROM measurement_history WHERE astronaut_id = ?", (astronaut_id,))
     conn.executemany(
         INSERT_SQL,
         [
-            (astronaut_id, recorded_at, *(values[d.characteristic] for d in CHARACTERISTIC_DEFINITIONS))
-            for recorded_at, values in history
+            (
+                astronaut_id,
+                recorded_at,
+                *(values[d.characteristic] for d in CHARACTERISTIC_DEFINITIONS),
+                *(extra_values[extra.key] for extra in HISTORY_EXTRAS),
+            )
+            for (recorded_at, values), (_, extra_values) in zip(history, extras, strict=True)
         ],
     )
 
@@ -383,7 +432,7 @@ def seed_database(
         for profile in profiles:
             history = generate_history(profile, end)
             astronaut_id = _upsert_astronaut(conn, profile)
-            _insert_rows(conn, astronaut_id, history)
+            _insert_rows(conn, astronaut_id, history, generate_extras(profile, end))
             counts[f"{profile.last_name} {profile.first_name}"] = len(history)
     return counts
 

@@ -65,7 +65,7 @@ def load_latest(
     last_name, first_name, recorded_at = row[0], row[1], row[5]
     values: dict[Characteristic, float | None] = dict(zip(DEMOGRAPHIC_CHARACTERISTICS, row[2:5]))
     values.update(zip(MEASUREMENT_CHARACTERISTICS, row[6:]))
-    return printable(f"{last_name} {first_name}"), recorded_at, values
+    return printable(f"{first_name} {last_name}"), recorded_at, values
 
 
 def _latest_sql() -> str:

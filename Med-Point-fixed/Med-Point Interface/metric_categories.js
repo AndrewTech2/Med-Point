@@ -14,7 +14,9 @@
             metrics: Object.freeze([
                 "AVERAGE_HEART_RATE",
                 "SYSTOLIC_BLOOD_PRESSURE",
-                "DIASTOLIC_BLOOD_PRESSURE"
+                "DIASTOLIC_BLOOD_PRESSURE",
+                "VO2_MAX",
+                "HEART_RATE_RECOVERY"
             ])
         }),
         Object.freeze({
