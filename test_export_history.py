@@ -82,3 +82,18 @@ def test_missing_database_writes_nothing(tmp_path, capsys):
     # Assert
     assert code == 1 and not out.exists()
     assert "not found" in capsys.readouterr().out
+
+
+def test_each_astronaut_embeds_the_recommendations_payload(tmp_path):
+    # Arrange
+    db = make_db(tmp_path / "h.db", [60, 66])
+
+    # Act
+    with closing(connect_read_only(db)) as conn:
+        data = build_export(conn)
+
+    # Assert
+    for astronaut in data["astronauts"]:
+        payload = astronaut["recommendations"]
+        assert payload["astronaut_id"] == astronaut["id"]
+        assert isinstance(payload["recommendations"], list)

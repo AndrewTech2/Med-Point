@@ -120,20 +120,25 @@ function loadModel(viewer) {
         const script = document.createElement("script");
         script.src = glbName.replace(/\.glb$/i, ".data.js");
         script.onload = () => {
+            script.remove();
             try {
                 const binary = atob(window.MODEL_DATA[glbName]);
                 const bytes = new Uint8Array(binary.length);
                 for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                viewer.src = URL.createObjectURL(
-                    new Blob([bytes], { type: "model/gltf-binary" })
-                );
+                const url = URL.createObjectURL(new Blob([bytes], { type: "model/gltf-binary" }));
+                viewer.src = url;
+                // Free the copy once the viewer has parsed it.
+                viewer.addEventListener("load", () => URL.revokeObjectURL(url), { once: true });
                 delete window.MODEL_DATA[glbName];
             } catch (error) {
                 console.error("Could not decode embedded model:", error);
                 showError();
             }
         };
-        script.onerror = showError;
+        script.onerror = () => {
+            script.remove();
+            showError();
+        };
         document.head.appendChild(script);
     }
 
@@ -151,6 +156,8 @@ function loadModel(viewer) {
 
     viewer.src = glbName;
 }
+
+window.MedPointModels = Object.freeze({ loadModel });
 
 // Main astronaut: starts loading right away. Hovering over it fades the
 // model to transparent (with a slight blur); moving away brings it back.
@@ -367,17 +374,6 @@ function loadModel(viewer) {
         hovering = over ? !hovering : false;
         fadeTo(hovering ? GHOST_ALPHA : 1);
     });
-})();
-
-// Crew models: loaded the first time the crew page is opened.
-(function setupCrewModels() {
-    const button = document.getElementById("openColleaguesPage");
-
-    function loadCrew() {
-        document.querySelectorAll(".crew-model").forEach(loadModel);
-    }
-
-    button?.addEventListener("click", loadCrew, { once: true });
 })();
 
 /* -----------------------------------
@@ -747,38 +743,126 @@ function makeRangeSelector(onSelect) {
     return selector;
 }
 
-function loadHealthHistory() {
+// Graph state: the range buttons and the extra metric cards are built once in
+// setupGraphs; showAstronaut refills them for the astronaut shown.
+let graphGrid = null;
+let graphTemplate = null;     // pristine graph card, cloned for metrics that have no card
+let rangeSelector = null;
+let graphRange = DEFAULT_RANGE;
+let shownAstronaut = null;
+
+function astronautById(id) {
+    return (window.MED_POINT_HISTORY?.astronauts ?? []).find(a => a.id === id);
+}
+
+// ?astronaut_id= when it is in the history, else the first astronaut (as astronaut_switch.js).
+function initialAstronautId() {
     const astronauts = window.MED_POINT_HISTORY?.astronauts ?? [];
-    const wanted = new URLSearchParams(window.location.search).get("astronaut_id");
-    const astronaut = wanted === null ? astronauts[0] : astronauts.find(a => a.id === Number(wanted));
-    const grid = document.querySelector(".graph-detail-grid");
-    if (!astronaut || !grid) return;
+    const wanted = new URLSearchParams(window.location.search).get("astronaut_id") ?? "";
+    const id = /^\d+$/.test(wanted) ? Number(wanted) : NaN;
+    return astronauts.some(a => a.id === id) ? id : (astronauts[0]?.id ?? null);
+}
 
-    const spare = grid.querySelector(".graph-card").cloneNode(true);   // layout for extra metrics
-    const shown = new Set();
-    grid.querySelectorAll(".graph-card[data-metric]").forEach(card => shown.add(card.dataset.metric));
+// The crew card's name (the database name in Flask); the export name when the card has none.
+function displayName(astronaut) {
+    const card = document.querySelector(`.crew-card[data-astronaut-id="${astronaut.id}"]`);
+    const cardName = card?.dataset.astronautName ?? "";
+    return cardName && !cardName.includes("{{") ? cardName : astronaut.name;
+}
 
+// Same text as the Flask render (Python :g), so static mode matches the server.
+function formatReading(value) {
+    return Number.isFinite(value) ? String(Number(value)) : "—";
+}
+
+function withUnit(value, unit) {
+    return Number.isFinite(value) ? `${formatReading(value)} ${unit}` : "—";
+}
+
+function latestValue(metric) {
+    const points = metric?.points ?? [];
+    const last = points[points.length - 1];
+    return Number.isFinite(last?.[1]) ? last[1] : null;
+}
+
+function setText(id, text) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = text;
+}
+
+function updateStats(astronaut) {
+    const heartRate = astronaut.metrics.AVERAGE_HEART_RATE;
+    const sleep = latestValue(astronaut.metrics.SLEEP_HOURS);
+    const heartValues = (heartRate?.points ?? []).map(([, value]) => value).filter(Number.isFinite);
+    const mean = heartValues.length
+        ? heartValues.reduce((sum, value) => sum + value, 0) / heartValues.length
+        : null;
+
+    setText("avgHrValue", withUnit(mean === null ? null : Math.round(mean * 10) / 10, "BPM"));
+    setVital("bpmValue", formatReading(latestValue(heartRate)), "BPM");
+    setVital("sleepValue", formatReading(sleep), "hours");
+    setText("summarySleepValue", withUnit(sleep, "hours"));
+    setText("summaryBoneValue", withUnit(latestValue(astronaut.metrics.BONE_DENSITY_CALCIUM), "g/cm²"));
+    setText("summaryVo2Value", "—");
+    setText("recoveryValue", "—");
+    document.querySelectorAll(".graph-card:not([data-metric]) .graph-card-header strong")
+        .forEach(strong => { strong.textContent = "—"; });
+}
+
+function updateNameSlots(astronaut) {
+    const text = ` · ${displayName(astronaut)}`;
+    document.querySelectorAll(".astronaut-name-slot").forEach(slot => { slot.textContent = text; });
+}
+
+// Adds a card for each metric the astronaut has and no card exists for yet.
+function ensureMetricCards(astronaut) {
+    const shown = new Set(
+        Array.from(graphGrid.querySelectorAll(".graph-card[data-metric]"), card => card.dataset.metric)
+    );
     Object.entries(astronaut.metrics)
         .filter(([key]) => !shown.has(key))
         .forEach(([key, metric]) => {
-            const card = spare.cloneNode(true);
+            const card = graphTemplate.cloneNode(true);
             card.dataset.metric = key;
             card.querySelector(".crew-member-label").textContent = metric.label;
-            grid.appendChild(card);
+            graphGrid.appendChild(card);
         });
+}
 
-    const end = latestReading(astronaut);
-    const selector = makeRangeSelector(showRange);
-    function showRange(key) {
-        const start = end === null ? null : RANGE_STARTS[key](end);
-        grid.querySelectorAll(".graph-card[data-metric]").forEach(card => {
-            const metric = astronaut.metrics[card.dataset.metric];
-            if (metric) fillGraphCard(card, { ...metric, points: pointsInRange(metric.points, start) });
-        });
-        selector.select(key);
+// Refills every metric card; a metric the astronaut lacks gets no points, so no stale chart stays.
+function showRange(key) {
+    if (!shownAstronaut) return;
+    graphRange = key;
+    const end = latestReading(shownAstronaut);
+    const start = end === null ? null : RANGE_STARTS[key](end);
+    graphGrid.querySelectorAll(".graph-card[data-metric]").forEach(card => {
+        const metric = shownAstronaut.metrics[card.dataset.metric]
+            ?? { label: card.querySelector(".crew-member-label").textContent, unit: "", points: [] };
+        fillGraphCard(card, { ...metric, points: pointsInRange(metric.points, start) });
+    });
+    rangeSelector.select(key);
+}
+
+function setupGraphs() {
+    graphGrid = document.querySelector(".graph-detail-grid");
+    if (!graphGrid) return;
+    graphTemplate = graphGrid.querySelector(".graph-card").cloneNode(true);
+    rangeSelector = makeRangeSelector(showRange);
+    (graphGrid.closest(".graph-detail-layout") || graphGrid).before(rangeSelector);
+}
+
+// Shows one astronaut across the dashboard. Returns false when the id is not in the history.
+function showAstronaut(id) {
+    const astronaut = astronautById(id);
+    if (!astronaut) return false;
+    shownAstronaut = astronaut;
+    updateNameSlots(astronaut);
+    updateStats(astronaut);
+    if (graphGrid) {
+        ensureMetricCards(astronaut);
+        showRange(graphRange);
     }
-    grid.before(selector);
-    showRange(DEFAULT_RANGE);
+    return true;
 }
 
 /* -----------------------------------
@@ -834,4 +918,6 @@ window.MedPointDashboard = {
 };
 
 loadHealthSuggestions();
-loadHealthHistory();
+setupGraphs();
+document.addEventListener("medpoint:astronaut-changed", event => showAstronaut(event.detail.astronautId));
+showAstronaut(initialAstronautId());

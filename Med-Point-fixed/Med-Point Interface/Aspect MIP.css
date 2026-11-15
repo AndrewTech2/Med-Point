@@ -696,6 +696,63 @@ body::before {
     .summary-details { grid-template-columns: minmax(0, 1.45fr) minmax(104px, 1fr); }
 }
 
+/* Desktop: the dashboard fits one viewport. Overflowing lists scroll inside their panel, never the page. */
+@media (min-width: 1051px) {
+    .dashboard {
+        height: 100vh;
+        height: 100dvh;
+        min-height: 0;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+
+    /* Not the astronaut stage: its 560px min-height must stay. */
+    .colleagues-panel,
+    .graphs-panel,
+    .suggestions-panel,
+    .summary-panel,
+    .tasks-panel { min-height: 0; }
+
+    .graphs-panel,
+    .summary-panel {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    /* Whole panel scrolls (heading included), so the list never gets squeezed to nothing. */
+    .suggestions-panel,
+    .tasks-panel {
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+    }
+
+    /* Fill the row; the summary panel was bottom-aligned, leaving a gap above it. */
+    .summary-panel { align-self: stretch; }
+
+    .graph-chart {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .graph-chart .chart-frame {
+        flex: 1 1 0;
+        min-height: 60px;
+    }
+
+    .health-chart { height: 100%; }
+
+    .summary-details {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+    }
+}
+
 /* ------------------------------
    EXPANDED CREW OVERVIEW PAGE
    ------------------------------ */
@@ -825,6 +882,39 @@ body::before {
 
 .crew-card:hover { border-color: var(--line-strong); }
 
+/* Cards are links now: same look as the old article */
+a.crew-card {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* Unresolved crew id: no href, so not clickable */
+a.crew-card[aria-disabled="true"] { cursor: default; }
+
+.crew-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
+/* Hover/focus glow on the glass slot (card ::before/::after are already the sheen and rim) */
+.crew-silhouette-slot::after {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    content: "";
+    background: radial-gradient(ellipse at 50% 45%, rgba(217, 180, 122, 0.16), transparent 65%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 240ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .crew-card:not([aria-disabled="true"]):hover .crew-silhouette-slot::after { opacity: 1; }
+}
+
+.crew-card:not([aria-disabled="true"]):focus-visible .crew-silhouette-slot::after { opacity: 1; }
+
 .crew-silhouette-slot {
     position: relative;
     display: flex;
@@ -924,6 +1014,21 @@ body::before {
     font-weight: 500;
     line-height: 1.2;
     text-align: right;
+}
+
+/* Name above the helmet. Plain text: the card link is the only click target. */
+.crew-username {
+    display: block;
+    min-width: 0;
+    margin: 0 0 10px;
+    overflow: hidden;
+    color: var(--text);
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.3;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* HEALTH DATA PAGE */
@@ -1352,6 +1457,43 @@ body {
         border-color 240ms ease,
         color 200ms ease,
         background 200ms ease;
+}
+
+/* ------------------------------
+   SELECTED CREW CARD
+   ------------------------------ */
+
+.crew-card[aria-current="true"] {
+    border-color: rgba(217, 180, 122, 0.45);
+}
+
+.crew-card[aria-current="true"] .slot-index::after {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 3px 7px;
+    border: 1px solid rgba(217, 180, 122, 0.5);
+    border-radius: 999px;
+    color: var(--accent);
+    content: "Viewing";
+    font-size: 0.5rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+/* ------------------------------
+   DASHBOARD SWITCH
+   Panel content (not the panel boxes) fades and rises once.
+   The loader is excluded: its .is-done opacity must keep winning.
+   ------------------------------ */
+
+@keyframes medpoint-switch-in {
+    from { opacity: 0; translate: 0 6px; }
+    to { opacity: 1; translate: 0 0; }
+}
+
+.dashboard.is-switching .panel > *,
+.dashboard.is-switching .astronaut-stage > *:not(.model-loading) {
+    animation: medpoint-switch-in 320ms var(--ease);
 }
 
 /* ------------------------------

@@ -14,6 +14,7 @@ from pathlib import Path
 from Caracteristici import CHARACTERISTIC_DEFINITIONS, DB_PATH
 from calculations import connect_read_only, printable
 from historic import list_history, summarise
+from recommendations_api import payload_for_astronaut
 
 DEFAULT_OUT = Path(__file__).with_name("Med-Point-fixed") / "Med-Point Interface" / "health_history.js"
 
@@ -40,7 +41,13 @@ def build_export(conn) -> dict:
                     "summary": summary._asdict(),
                 }
         astronauts.append(
-            {"id": astronaut_id, "name": printable(f"{last_name} {first_name}"), "metrics": metrics}
+            {
+                "id": astronaut_id,
+                "name": printable(f"{last_name} {first_name}"),
+                "metrics": metrics,
+                # same payload as the Flask endpoint, so the page works when opened as a file
+                "recommendations": payload_for_astronaut(conn, astronaut_id),
+            }
         )
     return {"astronauts": astronauts}
 
@@ -57,7 +64,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     with closing(connect_read_only(args.db)) as conn:
         data = build_export(conn)
     args.out.write_text(
-        f"window.MED_POINT_HISTORY = {json.dumps(data, indent=1)};\n", encoding="utf-8"
+        f"window.MED_POINT_HISTORY = {json.dumps(data, separators=(",", ":"))};\n", encoding="utf-8"
     )
     print(f"Wrote {len(data['astronauts'])} astronaut(s) to {args.out}")
     return 0

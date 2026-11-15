@@ -1,0 +1,190 @@
+/* ------------------------------
+   Med-Point | recommendations panel
+   Severity colours and item layout for recommendations_panel.js.
+   Loaded after Aspect MIP.css and filters.css.
+   ------------------------------ */
+
+.suggestions-panel {
+    --sev-watch: rgb(242, 207, 29);
+    --sev-action: rgb(242, 140, 40);
+    --sev-urgent: rgb(229, 72, 77);
+    --sev-ok: var(--cool);
+    --sev-unknown: var(--muted);
+}
+
+/* Each status sets --sev for its items and for the overall badge. */
+.rec-item.rec-watch,
+.rec-overall.rec-watch { --sev: var(--sev-watch); }
+
+.rec-item.rec-action,
+.rec-overall.rec-action { --sev: var(--sev-action); }
+
+.rec-item.rec-urgent,
+.rec-overall.rec-urgent { --sev: var(--sev-urgent); }
+
+.rec-item.rec-ok,
+.rec-overall.rec-ok { --sev: var(--sev-ok); }
+
+.rec-item.rec-unknown,
+.rec-overall.rec-unknown { --sev: var(--sev-unknown); }
+
+/* ------------------------------
+   Overall line, note and disclaimer
+   ------------------------------ */
+
+.rec-overall,
+.rec-note,
+.rec-disclaimer {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.rec-overall {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    color: var(--text-2);
+}
+
+.rec-note { margin-top: 14px; }
+
+.rec-disclaimer {
+    margin-top: 8px;
+    font-size: 0.72rem;
+}
+
+.rec-overall[hidden],
+.rec-note[hidden],
+.rec-disclaimer[hidden] { display: none; }
+
+.rec-multi {
+    padding: 1px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 0.68rem;
+}
+
+/* ------------------------------
+   Badge
+   ------------------------------ */
+
+.rec-badge {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--sev, var(--muted)) 15%, transparent);
+    color: var(--sev, var(--muted));
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    line-height: 1.6;
+}
+
+/* ------------------------------
+   Items. Overrides the generic .suggestions-list li flex rules for li.rec-item only.
+   ------------------------------ */
+
+.suggestions-list li.rec-item {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border-left: 3px solid var(--sev, var(--muted));
+    border-radius: 0 14px 14px 0;
+    overflow: hidden;
+    color: var(--text-2);
+    font-size: clamp(0.8rem, 0.9vw, 0.88rem);
+    line-height: 1.5;
+}
+
+.rec-body,
+.rec-link {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+
+.rec-link {
+    cursor: pointer;
+    transition: background-color 160ms var(--ease);
+}
+
+.rec-link:hover {
+    background: var(--accent-soft);
+}
+
+.rec-link:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+.rec-text {
+    display: block;
+    margin-top: 6px;
+    color: var(--text);
+    font-size: clamp(0.84rem, 0.95vw, 0.92rem);
+    line-height: 1.5;
+}
+
+.rec-meta {
+    display: block;
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    line-height: 1.5;
+}
+
+.rec-rule-ids {
+    color: var(--text-2);
+    font-family: var(--mono);
+}
+
+.rec-sep { margin: 0 0.35em; }
+
+/* ------------------------------
+   Show more / show fewer
+   ------------------------------ */
+
+.rec-more-button {
+    padding: 6px 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: background-color 160ms var(--ease);
+}
+
+.rec-more-button:hover {
+    background: var(--accent-soft);
+}
+
+.rec-more-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Long text wraps (overflow-wrap above), so nothing scrolls sideways at 320 px. */
+@media (prefers-reduced-motion: reduce) {
+    .rec-link,
+    .rec-more-button { transition: none; }
+}

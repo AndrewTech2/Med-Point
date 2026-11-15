@@ -9,11 +9,19 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
     <link rel="stylesheet" href="Aspect MIP.css">
+    <link rel="stylesheet" href="filters.css">
+    <link rel="stylesheet" href="recommendations.css">
     <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
     <script src="health_history.js" defer></script>
+    <script src="metric_categories.js" defer></script>
     <script src="Script MIP.js" defer></script>
+    <script src="crew_models.js" defer></script>
+    <script src="filters.js" defer></script>
+    <script src="recommendations_panel.js" defer></script>
+    <script src="astronaut_switch.js" defer></script>
 </head>
 <body>
+    <p class="visually-hidden" id="astronautAnnouncer" aria-live="polite"></p>
     <main class="dashboard" aria-label="Med-Point astronaut health dashboard">
 
         <!-- Colleagues -->
@@ -36,7 +44,7 @@
             <div class="panel-heading">
                 <div>
                     <p class="eyebrow">
-                        Health data{% if astronaut %} · {{ astronaut.first_name }} {{ astronaut.last_name }}{% endif %}
+                        Health data<span class="astronaut-name-slot">{% if astronaut %} · {{ astronaut.first_name }} {{ astronaut.last_name }}{% endif %}</span>
                     </p>
                     <h2 id="graphsTitle">Graphs</h2>
                 </div>
@@ -148,7 +156,7 @@
             <div class="panel-heading">
                 <div>
                     <p class="eyebrow">
-                        Current metrics{% if astronaut %} · {{ astronaut.first_name }} {{ astronaut.last_name }}{% endif %}
+                        Current metrics<span class="astronaut-name-slot">{% if astronaut %} · {{ astronaut.first_name }} {{ astronaut.last_name }}{% endif %}</span>
                     </p>
                     <h2 id="summaryTitle">Summary</h2>
                 </div>
@@ -168,7 +176,7 @@
                              style="--progress: 0%">
                         </div>
                         <span>Bone density</span>
-                        <strong>{{ metrics.bone_density }}</strong>
+                        <strong id="summaryBoneValue">{{ metrics.bone_density }}</strong>
                     </div>
 
                     <div class="metric-column">
@@ -181,7 +189,7 @@
                              style="--progress: 0%">
                         </div>
                         <span>Sleep</span>
-                        <strong>
+                        <strong id="summarySleepValue">
                             {{ metrics.sleep }}{% if astronaut and astronaut.sleep_hours is not none %} hours{% endif %}
                         </strong>
                     </div>
@@ -196,7 +204,7 @@
                              style="--progress: 0%">
                         </div>
                         <span>VO₂</span>
-                        <strong>{{ metrics.vo2 }}</strong>
+                        <strong id="summaryVo2Value">{{ metrics.vo2 }}</strong>
                     </div>
 
                 </div>
@@ -259,11 +267,12 @@
 
             <div class="crew-grid" id="crewGrid">
 
-                <article class="crew-card">
-                    <div class="crew-silhouette-slot" aria-label="Astronaut model for crew member 1">
+                <a class="crew-card" href="?astronaut_id={{ crew[0].id if crew|length > 0 else '' }}" data-astronaut-id="{{ crew[0].id if crew|length > 0 else '' }}" data-astronaut-name="{{ crew[0].full_name if crew|length > 0 else '' }}">
+                    <span class="crew-username" aria-hidden="true">{{ crew[0].full_name if crew|length > 0 else "" }}</span>
+                    <div class="crew-silhouette-slot">
                         <model-viewer class="crew-model"
                                       data-src="astronaut_3d_model.glb"
-                                      alt="3D model of crew member 1"
+                                      alt="3D model of a crew member"
                                       interaction-prompt="none"
                                       disable-zoom
                                       touch-action="pan-y"
@@ -284,13 +293,14 @@
                         <span class="crew-member-label">Crew member</span>
                         <strong>{{ crew[0].full_name if crew|length > 0 else "—" }}</strong>
                     </div>
-                </article>
+                </a>
 
-                <article class="crew-card">
-                    <div class="crew-silhouette-slot" aria-label="Astronaut model for crew member 2">
+                <a class="crew-card" href="?astronaut_id={{ crew[1].id if crew|length > 1 else '' }}" data-astronaut-id="{{ crew[1].id if crew|length > 1 else '' }}" data-astronaut-name="{{ crew[1].full_name if crew|length > 1 else '' }}">
+                    <span class="crew-username" aria-hidden="true">{{ crew[1].full_name if crew|length > 1 else "" }}</span>
+                    <div class="crew-silhouette-slot">
                         <model-viewer class="crew-model"
-                                      data-src="astronaut_spacesuit_3d_model_4.glb"
-                                      alt="3D model of crew member 2"
+                                      data-src="astronaut_3d_model.glb"
+                                      alt="3D model of a crew member"
                                       interaction-prompt="none"
                                       disable-zoom
                                       touch-action="pan-y"
@@ -311,13 +321,14 @@
                         <span class="crew-member-label">Crew member</span>
                         <strong>{{ crew[1].full_name if crew|length > 1 else "—" }}</strong>
                     </div>
-                </article>
+                </a>
 
-                <article class="crew-card">
-                    <div class="crew-silhouette-slot" aria-label="Astronaut model for crew member 3">
+                <a class="crew-card" href="?astronaut_id={{ crew[2].id if crew|length > 2 else '' }}" data-astronaut-id="{{ crew[2].id if crew|length > 2 else '' }}" data-astronaut-name="{{ crew[2].full_name if crew|length > 2 else '' }}">
+                    <span class="crew-username" aria-hidden="true">{{ crew[2].full_name if crew|length > 2 else "" }}</span>
+                    <div class="crew-silhouette-slot">
                         <model-viewer class="crew-model"
-                                      data-src="astronaut_suit_3d_model_2.glb"
-                                      alt="3D model of crew member 3"
+                                      data-src="astronaut_3d_model.glb"
+                                      alt="3D model of a crew member"
                                       interaction-prompt="none"
                                       disable-zoom
                                       touch-action="pan-y"
@@ -338,13 +349,14 @@
                         <span class="crew-member-label">Crew member</span>
                         <strong>{{ crew[2].full_name if crew|length > 2 else "—" }}</strong>
                     </div>
-                </article>
+                </a>
 
-                <article class="crew-card">
-                    <div class="crew-silhouette-slot" aria-label="Astronaut model for crew member 4">
+                <a class="crew-card" href="?astronaut_id={{ crew[3].id if crew|length > 3 else '' }}" data-astronaut-id="{{ crew[3].id if crew|length > 3 else '' }}" data-astronaut-name="{{ crew[3].full_name if crew|length > 3 else '' }}">
+                    <span class="crew-username" aria-hidden="true">{{ crew[3].full_name if crew|length > 3 else "" }}</span>
+                    <div class="crew-silhouette-slot">
                         <model-viewer class="crew-model"
-                                      data-src="spacesuit_3d_model_3.glb"
-                                      alt="3D model of crew member 4"
+                                      data-src="astronaut_3d_model.glb"
+                                      alt="3D model of a crew member"
                                       interaction-prompt="none"
                                       disable-zoom
                                       touch-action="pan-y"
@@ -365,7 +377,7 @@
                         <span class="crew-member-label">Crew member</span>
                         <strong>{{ crew[3].full_name if crew|length > 3 else "—" }}</strong>
                     </div>
-                </article>
+                </a>
 
             </div>
         </div>
@@ -388,7 +400,8 @@
                 Long-term trends for each metric.
             </p>
 
-            <div class="graph-detail-grid">
+            <div class="graph-detail-layout">
+            <div class="graph-detail-grid" id="graphDetailGrid">
 
                 <article class="graph-card" data-metric="AVERAGE_HEART_RATE">
                     <div class="graph-card-header">
@@ -466,6 +479,10 @@
                     </div>
                 </article>
 
+            </div>
+
+            <!-- Category filter column; buttons are added by filters.js -->
+            <nav class="category-filter" id="categoryFilter" aria-label="Graph categories"></nav>
             </div>
         </div>
     </section>

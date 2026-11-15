@@ -1,7 +1,11 @@
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
-from flask import Flask, abort, render_template, request, send_from_directory
+from flask import Flask, abort, jsonify, render_template, request, send_from_directory
+
+from recommendation_types import MissionPhase
+from recommendations_api import payload_for_astronaut
 
 BASE_DIR = Path(__file__).resolve().parent
 INTERFACE_DIR = BASE_DIR / "Med-Point-fixed" / "Med-Point Interface"
@@ -14,6 +18,7 @@ app = Flask(
 )
 
 ASSET_EXTENSIONS = {".css", ".glb", ".js"}
+GLB_MAX_AGE_SECONDS = 24 * 60 * 60
 
 
 def _format_measurement(value: float | int | None, unit: str = "") -> str:
@@ -25,14 +30,18 @@ def _format_measurement(value: float | int | None, unit: str = "") -> str:
 
 @app.get("/<path:filename>")
 def interface_asset(filename: str):
-    if Path(filename).suffix.lower() not in ASSET_EXTENSIONS:
+    suffix = Path(filename).suffix.lower()
+    if suffix not in ASSET_EXTENSIONS:
         abort(404)
+    if suffix == ".glb":
+        # shortcut: a replaced model can show stale for up to a day, upgrade to fingerprinted filenames.
+        return send_from_directory(INTERFACE_DIR, filename, max_age=GLB_MAX_AGE_SECONDS)
     return send_from_directory(INTERFACE_DIR, filename)
 
 
 @app.get("/")
 def dashboard():
-    with sqlite3.connect(f"file:{DATABASE_PATH}?mode=ro", uri=True) as conn:
+    with closing(sqlite3.connect(f"file:{DATABASE_PATH}?mode=ro", uri=True)) as conn:
         conn.row_factory = sqlite3.Row
         crew_rows = conn.execute(
             """SELECT id, first_name, last_name
@@ -52,7 +61,7 @@ def dashboard():
             astronaut_id = crew_rows[0]["id"] if crew_rows else None
 
         astronaut = None
-        history = []
+        average_heart_rate = None
         if astronaut_id is not None:
             astronaut = conn.execute(
                 """SELECT a.id, a.first_name, a.last_name, a.age, a.height, a.weight,
@@ -72,13 +81,12 @@ def dashboard():
                    WHERE a.id = ?""",
                 (astronaut_id,),
             ).fetchone()
-            history = conn.execute(
-                """SELECT recorded_at, average_pulse, sleep_hours
-                   FROM measurement_history
-                   WHERE astronaut_id = ?
-                   ORDER BY recorded_at, id""",
+            average_pulse = conn.execute(
+                "SELECT AVG(average_pulse) FROM measurement_history WHERE astronaut_id = ?",
                 (astronaut_id,),
-            ).fetchall()
+            ).fetchone()[0]
+            if average_pulse is not None:
+                average_heart_rate = round(average_pulse, 1)
 
     crew = [
         {
@@ -88,10 +96,6 @@ def dashboard():
         for row in crew_rows
     ]
     latest = astronaut
-    heart_rate_values = [row["average_pulse"] for row in history if row["average_pulse"] is not None]
-    average_heart_rate = (
-        round(sum(heart_rate_values) / len(heart_rate_values), 1) if heart_rate_values else None
-    )
     metrics = {
         "heart_rate": _format_measurement(latest["average_pulse"] if latest else None),
         "average_heart_rate": _format_measurement(average_heart_rate, "BPM"),
@@ -109,6 +113,29 @@ def dashboard():
         crew=crew,
         metrics=metrics,
     )
+
+
+def _parse_phase(raw: str | None) -> MissionPhase | None:
+    """Return the phase for a ?phase= value (missing means UNKNOWN); None when invalid."""
+    if raw is None:
+        return MissionPhase.UNKNOWN
+    try:
+        return MissionPhase(raw)
+    except ValueError:
+        return None
+
+
+@app.get("/api/astronauts/<int:astronaut_id>/recommendations")
+def astronaut_recommendations(astronaut_id: int):
+    phase = _parse_phase(request.args.get("phase"))
+    if phase is None:
+        allowed = ", ".join(member.value for member in MissionPhase)
+        return jsonify(error=f"phase must be one of: {allowed}"), 400
+    with closing(sqlite3.connect(f"file:{DATABASE_PATH}?mode=ro", uri=True)) as conn:
+        payload = payload_for_astronaut(conn, astronaut_id, phase)
+    if payload is None:
+        return jsonify(error="astronaut not found"), 404
+    return jsonify(payload)
 
 
 if __name__ == "__main__":

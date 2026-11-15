@@ -1,3 +1,7 @@
+import sqlite3
+
+import pytest
+
 from app import app
 from test_historic import make_db
 
@@ -58,3 +62,79 @@ def test_dashboard_loads_when_only_empty_astronaut_exists(tmp_path, monkeypatch)
 
     # Assert
     assert response.status_code == 200
+
+
+def test_dashboard_all_null_pulses_show_dash(tmp_path, monkeypatch):
+    # Arrange
+    db = make_db(tmp_path / "h.db", [None, None])
+    monkeypatch.setattr("app.DATABASE_PATH", db)
+    client = app.test_client()
+
+    # Act
+    response = client.get(f"/?astronaut_id={JANE_ID}")
+
+    # Assert
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert '<strong id="avgHrValue">—</strong>' in html
+
+
+def test_dashboard_closes_connection_on_every_path(tmp_path, monkeypatch):
+    # Arrange
+    db = make_db(tmp_path / "h.db", [60])
+    monkeypatch.setattr("app.DATABASE_PATH", db)
+    opened = []
+    real_connect = sqlite3.connect
+
+    def recording_connect(*args, **kwargs):
+        conn = real_connect(*args, **kwargs)
+        opened.append(conn)
+        return conn
+
+    monkeypatch.setattr("app.sqlite3.connect", recording_connect)
+    client = app.test_client()
+
+    # Act
+    for url in ("/", "/?astronaut_id=abc", "/?astronaut_id=999"):
+        client.get(url)
+
+    # Assert
+    assert len(opened) == 3
+    for conn in opened:
+        with pytest.raises(sqlite3.ProgrammingError):
+            conn.execute("select 1")
+
+
+@pytest.fixture
+def interface_dir(tmp_path, monkeypatch):
+    # Arrange: a small fake interface folder so asset tests do not depend on the real 18 MB model
+    (tmp_path / "model.glb").write_bytes(b"glTF" + b"\0" * 16)
+    (tmp_path / "script.js").write_text("console.log(1);", encoding="utf-8")
+    monkeypatch.setattr("app.INTERFACE_DIR", tmp_path)
+    return tmp_path
+
+
+def test_glb_asset_is_cached_for_a_day(interface_dir):
+    # Arrange
+    client = app.test_client()
+
+    # Act
+    response = client.get("/model.glb")
+
+    # Assert
+    assert response.status_code == 200
+    assert "max-age=86400" in response.headers["Cache-Control"]
+
+
+def test_js_asset_revalidates_and_returns_304_on_match(interface_dir):
+    # Arrange
+    client = app.test_client()
+    first = client.get("/script.js")
+    etag = first.headers["ETag"]
+
+    # Act
+    response = client.get("/script.js", headers={"If-None-Match": etag})
+
+    # Assert
+    assert first.headers["Cache-Control"] == "no-cache"
+    assert response.status_code == 304
