@@ -4,7 +4,7 @@ import pytest
 
 from app import app
 from test_historic import make_db
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 # make_db inserts the empty astronaut first, so Doe Jane gets id 2.
 JANE_ID = 2
@@ -90,6 +90,55 @@ def test_dashboard_loads_when_only_empty_astronaut_exists(tmp_path, monkeypatch)
 
     # Assert
     assert response.status_code == 200
+
+
+def test_login_finds_legacy_user_astronaut_when_account_row_is_unlinked(tmp_path, monkeypatch):
+    db = make_db(tmp_path / "h.db", [60])
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS user_accounts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                full_name TEXT NOT NULL,
+                age INTEGER NOT NULL,
+                height_cm REAL NOT NULL,
+                weight_kg REAL NOT NULL,
+                astronaut_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )"""
+        )
+        conn.execute("ALTER TABLE astronauts ADD COLUMN crew TEXT")
+        conn.execute("UPDATE astronauts SET crew = 'Alpha'")
+        conn.execute(
+            """INSERT INTO user_accounts
+               (email, password_hash, full_name, age, height_cm, weight_kg, astronaut_id)
+               VALUES (?, ?, ?, ?, ?, ?, NULL)""",
+            (
+                "doe.jane@example.test",
+                generate_password_hash("secure-passphrase"),
+                "Doe Jane",
+                35,
+                170.0,
+                65.0,
+            ),
+        )
+    monkeypatch.setattr("app.DATABASE_PATH", db)
+    client = app.test_client()
+
+    response = client.post(
+        "/login",
+        data={"email": "doe.jane@example.test", "password": "secure-passphrase"},
+    )
+    dashboard = client.get("/", follow_redirects=True)
+
+    assert response.status_code == 302
+    assert response.headers["Location"] == "/?astronaut_id=2"
+    assert dashboard.status_code == 200
+    assert b'class="crew-card"' in dashboard.data
+    assert b"Jane Doe" in dashboard.data
+    with client.session_transaction() as session:
+        assert session["astronaut_id"] == 2
 
 
 def test_dashboard_all_null_pulses_show_dash(tmp_path, monkeypatch):

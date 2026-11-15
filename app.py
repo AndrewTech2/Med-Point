@@ -121,6 +121,58 @@ def _format_measurement(value: float | int | None, unit: str = "") -> str:
     return f"{formatted} {unit}".strip()
 
 
+def _resolve_user_astronaut(conn: sqlite3.Connection, user_id: int) -> int | None:
+    conn.row_factory = sqlite3.Row
+    _ensure_user_accounts_table(conn)
+    row = conn.execute(
+        "SELECT astronaut_id, full_name FROM user_accounts WHERE id = ?",
+        (user_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    if row["astronaut_id"] is not None:
+        return row["astronaut_id"]
+
+    full_name = (row["full_name"] or "").strip()
+    if not full_name:
+        return None
+
+    name_parts = full_name.split()
+    if len(name_parts) >= 2:
+        candidates = [
+            (name_parts[0], " ".join(name_parts[1:])),
+            (" ".join(name_parts[1:]), name_parts[0]),
+        ]
+    elif len(name_parts) == 1:
+        candidates = [(name_parts[0], "")]
+    else:
+        return None
+
+    matched = None
+    for first_name, last_name in candidates:
+        matched = conn.execute(
+            """SELECT id
+               FROM astronauts
+               WHERE first_name = ?
+                 AND (last_name = ? OR last_name = '')
+               ORDER BY id
+               LIMIT 1""",
+            (first_name, last_name),
+        ).fetchone()
+        if matched is not None:
+            break
+    if matched is None:
+        return None
+
+    astronaut_id = matched["id"]
+    conn.execute(
+        "UPDATE user_accounts SET astronaut_id = ? WHERE id = ?",
+        (astronaut_id, user_id),
+    )
+    conn.commit()
+    return astronaut_id
+
+
 @app.get("/<path:filename>")
 def interface_asset(filename: str):
     suffix = Path(filename).suffix.lower()
@@ -137,9 +189,17 @@ def dashboard():
     if session.get("user_id") is None:
         return redirect(url_for("login"))
 
+    user_id = session.get("user_id")
+    assigned_id = session.get("astronaut_id")
+    if assigned_id is None and user_id is not None:
+        with closing(sqlite3.connect(DATABASE_PATH)) as conn:
+            resolved_id = _resolve_user_astronaut(conn, user_id)
+            if resolved_id is not None:
+                session["astronaut_id"] = resolved_id
+                assigned_id = resolved_id
+
     with closing(sqlite3.connect(f"file:{DATABASE_PATH}?mode=ro", uri=True)) as conn:
         conn.row_factory = sqlite3.Row
-        assigned_id = session.get("astronaut_id")
         crew_rows = []
         if assigned_id is not None:
             columns = {
@@ -271,7 +331,7 @@ def login():
             with conn:
                 _ensure_user_accounts_table(conn)
             user = conn.execute(
-                "SELECT id, password_hash, astronaut_id FROM user_accounts WHERE email = ?",
+                "SELECT id, password_hash, astronaut_id, full_name FROM user_accounts WHERE email = ?",
                 (email,),
             ).fetchone()
         if user is None:
@@ -279,12 +339,16 @@ def login():
         elif not check_password_hash(user["password_hash"], password):
             error = "Email or password is incorrect."
         else:
+            resolved_id = user["astronaut_id"]
+            if resolved_id is None:
+                with closing(sqlite3.connect(DATABASE_PATH)) as conn:
+                    resolved_id = _resolve_user_astronaut(conn, user["id"])
             session.clear()
             session["user_id"] = user["id"]
-            session["astronaut_id"] = user["astronaut_id"]
+            session["astronaut_id"] = resolved_id
             return redirect(
-                url_for("dashboard", astronaut_id=user["astronaut_id"])
-                if user["astronaut_id"] is not None
+                url_for("dashboard", astronaut_id=resolved_id)
+                if resolved_id is not None
                 else url_for("dashboard")
             )
     else:
