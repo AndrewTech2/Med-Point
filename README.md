@@ -35,15 +35,6 @@ From the repository root, install the Flask dependencies:
 python3 -m pip install Flask Flask-Session
 ```
 
-Set a persistent secret key for Flask sessions. For example, generate one with:
-
-```bash
-python3 -c "import secrets; print(secrets.token_hex(32))"
-export MED_POINT_SECRET_KEY="<paste-generated-value-here>"
-```
-
-Replace the placeholder with the generated value. If `MED_POINT_SECRET_KEY` is not set, the app generates a new key at startup, so sessions will not persist across restarts.
-
 Start the application:
 
 ```bash
@@ -53,28 +44,6 @@ python3 app.py
 Open [http://127.0.0.1:5000](http://127.0.0.1:5000) in a browser. The repository includes an `astronauts.db` SQLite database with sample astronaut and measurement-history records. The app reads and updates this database; keep a backup before making changes.
 
 The dashboard loads its web fonts and 3D model-viewer library from external CDNs, so internet access is needed for those assets.
-
-## Tests
-
-Install pytest if needed, then run the test suite from the repository root:
-
-```bash
-python3 -m pip install pytest
-python3 -m pytest
-```
-
-## Project layout
-
-| Path | Purpose |
-|---|---|
-| `app.py` | Flask application, account routes, dashboard, and API endpoints |
-| `Med-Point-fixed/Med-Point Interface/` | Active dashboard templates, stylesheets, and JavaScript |
-| `Caracteristici.py` | Health characteristic definitions and database mappings |
-| `calculations.py`, `recommendations.py`, `recommendation_rules.py` | Health calculations and recommendation logic |
-| `recommendations_api.py` | Recommendation payloads served by the application |
-| `astronauts.db` | SQLite database containing astronaut profiles and measurement history |
-| `test_*.py` | Automated tests |
-| `Calcule.md`, `calculations_extended.md` | Calculation notes, references, and proposed additional metrics |
 
 ## Medical-use notice
 
