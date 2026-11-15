@@ -34,7 +34,8 @@
     // Same rule as Script MIP.js: ?astronaut_id= when in the history, else the first astronaut.
     function initialId() {
         const requested = toId(new URLSearchParams(window.location.search).get("astronaut_id"));
-        if (requested !== null && inHistory(requested)) return requested;
+        const hasCrewCard = requested !== null && cards.some(card => cardId(card) === requested);
+        if (requested !== null && (inHistory(requested) || hasCrewCard)) return requested;
         return historyAstronauts()[0]?.id ?? null;
     }
 

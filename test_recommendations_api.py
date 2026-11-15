@@ -224,7 +224,7 @@ def test_return_phase_is_echoed_in_payload(tmp_path, monkeypatch):
     assert data["phase"] == "return"
 
 
-def test_asset_route_still_404s_for_python_source_and_root_still_200(tmp_path, monkeypatch):
+def test_asset_route_404s_for_python_source_and_root_redirects_to_login(tmp_path, monkeypatch):
     # Arrange
     client = make_client(tmp_path, monkeypatch)
 
@@ -234,7 +234,8 @@ def test_asset_route_still_404s_for_python_source_and_root_still_200(tmp_path, m
 
     # Assert
     assert py_response.status_code == 404
-    assert root_response.status_code == 200
+    assert root_response.status_code == 302
+    assert root_response.headers["Location"] == "/login"
 
 
 def test_load_latest_returns_none_for_missing_id(tmp_path):

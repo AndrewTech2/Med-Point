@@ -159,22 +159,15 @@ function loadModel(viewer) {
 
 window.MedPointModels = Object.freeze({ loadModel });
 
-// Main astronaut: starts loading right away. Hovering over it fades the
-// model to transparent (with a slight blur); moving away brings it back.
-(function setupMainAstronaut() {
-    const viewer = document.getElementById("astronautModel");
-    if (!viewer) return;
-
-    loadModel(viewer);
-
-    const GHOST_ALPHA = 0.22;   // how transparent it gets (0 to 1)
-    const FADE_MS = 500;        // fade duration
-
+function setupBodyVisualizer(viewer, { hoverToFade = false } = {}) {
+    const GHOST_ALPHA = 0.22;
+    const FADE_MS = 500;
     let baseColors = [];        // original colour of each material
     let alphaModes = [];        // original alpha mode of each material
     let currentAlpha = 1;
-    let targetAlpha = 1;
     let fadeFrame = 0;
+    let healthAbnormal = false;
+    let showHealthColors = false;
 
     /* -----------------------------------
        BODY HEALTH COLOURS
@@ -247,7 +240,7 @@ window.MedPointModels = Object.freeze({ loadModel });
             const base = baseColors[i] || [1, 1, 1, 1];
             const region = material.name.replace(/^region_/, "");
             const score = healthScores[region];
-            const tint = score === undefined ? null : healthColor(score, base);
+            const tint = showHealthColors && score !== undefined ? healthColor(score, base) : null;
             const rgb = tint || base;
 
             // Only use blending while actually transparent, so the solid
@@ -266,8 +259,9 @@ window.MedPointModels = Object.freeze({ loadModel });
     }
 
     function updateLegend() {
+        if (viewer.id !== "astronautModel") return;
         const legend = document.getElementById("bodyLegend");
-        if (legend) legend.hidden = Object.keys(healthScores).length === 0;
+        if (legend) legend.hidden = !healthAbnormal;
     }
 
     // part: a region name, "arms" or "legs". score: 0-100, or null to clear.
@@ -283,17 +277,36 @@ window.MedPointModels = Object.freeze({ loadModel });
             }
         });
 
-        refreshColors();
+        const wasAbnormal = healthAbnormal;
+        healthAbnormal = Object.values(healthScores).some((value) => value < HEALTHY_FROM);
         updateLegend();
+
+        if (!viewer.loaded || !viewer.model) {
+            showHealthColors = false;
+            return;
+        }
+
+        if (healthAbnormal && !wasAbnormal) {
+            showHealthColors = false;
+            fadeTo(GHOST_ALPHA, () => {
+                if (!healthAbnormal) return;
+                showHealthColors = true;
+                applyAlpha(currentAlpha);
+            });
+        } else if (!healthAbnormal && wasAbnormal) {
+            showHealthColors = false;
+            fadeTo(hoverToFade && hovering ? GHOST_ALPHA : 1);
+        } else if (healthAbnormal && showHealthColors) {
+            refreshColors();
+        } else {
+            applyAlpha(currentAlpha);
+        }
     }
 
-    window.MedPointBody = { setBodyPartHealth, regions: REGIONS };
-
-    function fadeTo(target) {
+    function fadeTo(target, onComplete) {
         if (!viewer.loaded || !viewer.model) return;
         if (!baseColors.length) captureMaterials();
 
-        targetAlpha = target;
         viewer.classList.toggle("is-blurred", target < 1);
 
         cancelAnimationFrame(fadeFrame);
@@ -305,7 +318,11 @@ window.MedPointModels = Object.freeze({ loadModel });
             const eased = 1 - Math.pow(1 - t, 3);
             currentAlpha = from + (target - from) * eased;
             applyAlpha(currentAlpha);
-            if (t < 1) fadeFrame = requestAnimationFrame(step);
+            if (t < 1) {
+                fadeFrame = requestAnimationFrame(step);
+            } else {
+                onComplete?.();
+            }
         }
 
         fadeFrame = requestAnimationFrame(step);
@@ -314,21 +331,33 @@ window.MedPointModels = Object.freeze({ loadModel });
     viewer.addEventListener("load", () => {
         baseColors = [];
         currentAlpha = 1;
-        targetAlpha = 1;
         viewer.classList.remove("is-blurred");
-        refreshColors();    // apply any scores that arrived before the model
+        if (healthAbnormal) {
+            showHealthColors = false;
+            fadeTo(GHOST_ALPHA, () => {
+                if (!healthAbnormal) return;
+                showHealthColors = true;
+                applyAlpha(currentAlpha);
+            });
+        } else {
+            showHealthColors = false;
+            refreshColors();
+            if (hoverToFade && hovering) fadeTo(GHOST_ALPHA);
+        }
     });
+
+    let hovering = false;
+    let lastPoint = null;
+    let lastCheck = 0;
+    let checkTimer = 0;
+
+    if (!hoverToFade) return { setBodyPartHealth, regions: REGIONS };
 
     /* HIT BOX
        The fade only happens while the pointer is over the astronaut's body.
        The viewer asks the 3D scene what is under the pointer, so the hit box
        follows the model's real outline (empty space around him does nothing). */
     const CHECK_EVERY_MS = 60;
-
-    let hovering = false;
-    let lastPoint = null;
-    let lastCheck = 0;
-    let checkTimer = 0;
 
     function isOverModel(x, y) {
         if (!viewer.loaded || !viewer.model) return false;
@@ -342,7 +371,7 @@ window.MedPointModels = Object.freeze({ loadModel });
     function setHovering(over) {
         if (over === hovering) return;
         hovering = over;
-        fadeTo(over ? GHOST_ALPHA : 1);
+        if (!healthAbnormal) fadeTo(over ? GHOST_ALPHA : 1);
     }
 
     function checkPointer() {
@@ -372,7 +401,36 @@ window.MedPointModels = Object.freeze({ loadModel });
         if (event.pointerType !== "touch") return;
         const over = isOverModel(event.clientX, event.clientY);
         hovering = over ? !hovering : false;
-        fadeTo(hovering ? GHOST_ALPHA : 1);
+        if (!healthAbnormal) fadeTo(hovering ? GHOST_ALPHA : 1);
+    });
+
+    return { setBodyPartHealth, regions: REGIONS };
+}
+
+// Main astronaut: starts loading right away. Hovering over it fades the
+// model to transparent (with a slight blur); moving away brings it back.
+(function setupMainAstronaut() {
+    const viewer = document.getElementById("astronautModel");
+    if (!viewer) return;
+
+    loadModel(viewer);
+    window.MedPointBody = setupBodyVisualizer(viewer, { hoverToFade: true });
+})();
+
+// Crew models use each astronaut's own region scores from the shared history.
+(function setupCrewAstronauts() {
+    const astronauts = window.MED_POINT_HISTORY?.astronauts ?? [];
+    document.querySelectorAll(".crew-model").forEach((viewer) => {
+        const card = viewer.closest(".crew-card");
+        const astronautId = Number(card?.dataset.astronautId);
+        if (!Number.isSafeInteger(astronautId) || astronautId < 1) return;
+
+        const astronaut = astronauts.find((item) => item.id === astronautId);
+        const regions = astronaut?.recommendations?.regions;
+        if (!regions || typeof regions !== "object") return;
+
+        const body = setupBodyVisualizer(viewer);
+        Object.entries(regions).forEach(([part, score]) => body.setBodyPartHealth(part, score));
     });
 })();
 
@@ -648,7 +706,9 @@ function latestReading(astronaut) {
 }
 
 function emptyMessage(count) {
-    return count === 0 ? "No readings in this range" : "Not enough readings in this range";
+    return count === 0
+        ? "No data has been collected yet."
+        : "Not enough readings in this range";
 }
 
 function drawLine(svg, paths) {
@@ -767,7 +827,11 @@ function initialAstronautId() {
     const astronauts = window.MED_POINT_HISTORY?.astronauts ?? [];
     const wanted = new URLSearchParams(window.location.search).get("astronaut_id") ?? "";
     const id = /^\d+$/.test(wanted) ? Number(wanted) : NaN;
-    return astronauts.some(a => a.id === id) ? id : (astronauts[0]?.id ?? null);
+    const hasCrewCard = Number.isSafeInteger(id)
+        && document.querySelector(`.crew-card[data-astronaut-id="${id}"]`);
+    return astronauts.some(a => a.id === id) || hasCrewCard
+        ? id
+        : (astronauts[0]?.id ?? null);
 }
 
 // The crew card's name (the database name in Flask); the export name when the card has none.

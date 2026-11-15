@@ -31,6 +31,11 @@
                     <p class="eyebrow">Crew overview</p>
                     <h2 id="colleaguesTitle">Colleagues</h2>
                 </div>
+                {% if is_authenticated %}
+                <form action="/logout" method="post">
+                    <button class="dashboard-signout" type="submit">Sign out</button>
+                </form>
+                {% endif %}
             </div>
 
             <button class="open-button colleagues-open-button" id="openColleaguesPage" type="button">
@@ -63,7 +68,7 @@
                 </div>
 
                 <div class="chart-frame">
-                    <svg class="health-chart" viewBox="0 0 420 200" preserveAspectRatio="none" role="img" aria-label="Health trend over time. No data yet.">
+                    <svg class="health-chart" viewBox="0 0 420 200" preserveAspectRatio="none" role="img" aria-label="Health trend over time. No data has been collected yet.">
                         <defs>
                             <linearGradient id="chartLine" x1="0%" x2="100%" y1="0%" y2="0%">
                                 <stop offset="0%" stop-color="#d9b47a"/>
@@ -85,7 +90,7 @@
                         <path class="chart-line" id="chartLinePath" d=""></path>
                         <path class="chart-line alternate" id="chartSleepPath" d=""></path>
                     </svg>
-                    <p class="chart-empty" id="chartEmpty">No data yet</p>
+                    <p class="chart-empty" id="chartEmpty">No data has been collected yet.</p>
                 </div>
 
                 <ul class="chart-legend" aria-label="Graph labels">
@@ -137,7 +142,7 @@
                 <i class="model-loading-bar"><b></b></i>
             </div>
 
-            <!-- Key for the body colours; appears once health values are set -->
+            <!-- Key for body colours; appears only when a region is below normal -->
             <div class="body-legend" id="bodyLegend" hidden>
                 <div class="body-legend-scale" aria-hidden="true"></div>
                 <div class="body-legend-ends"><span>Normal</span><span>Critical</span></div>
@@ -241,15 +246,15 @@
                 </div>
             </div>
 
-            <ul class="tasks-list" id="dailyTasks">
-                <li class="empty-task">Your daily tasks will appear here.</li>
+            <ul class="tasks-list" id="dailyTasks" aria-live="polite">
+                <li class="empty-task">Loading personalized daily tasks…</li>
             </ul>
 
         </section>
 
     </main>
 
-    <!-- Expanded colleagues page: four individual astronaut silhouette slots -->
+    <!-- Expanded colleagues page -->
     <section class="colleagues-detail-page" id="colleaguesDetailPage"
              aria-hidden="true" inert aria-label="Crew overview">
 
@@ -266,10 +271,13 @@
                 Individual health profiles for each crew member.
             </p>
 
+            {% if crew %}
             <div class="crew-grid" id="crewGrid">
-
-                <a class="crew-card" href="?astronaut_id={{ crew[0].id if crew|length > 0 else '' }}" data-astronaut-id="{{ crew[0].id if crew|length > 0 else '' }}" data-astronaut-name="{{ crew[0].full_name if crew|length > 0 else '' }}">
-                    <span class="crew-username" aria-hidden="true">{{ crew[0].full_name if crew|length > 0 else "" }}</span>
+                {% for member in crew %}
+                <a class="crew-card" href="?astronaut_id={{ member.id }}"
+                   data-astronaut-id="{{ member.id }}"
+                   data-astronaut-name="{{ member.full_name }}">
+                    <span class="crew-username" aria-hidden="true">{{ member.full_name }}</span>
                     <div class="crew-silhouette-slot">
                         <model-viewer class="crew-model"
                                       data-src="astronaut_3d_model.glb"
@@ -288,99 +296,18 @@
                             <span>Loading model</span>
                             <i class="model-loading-bar"><b></b></i>
                         </div>
-                        <span class="slot-index">01</span>
+                        <span class="slot-index">{{ "%02d"|format(loop.index) }}</span>
                     </div>
                     <div class="crew-card-footer">
                         <span class="crew-member-label">Crew member</span>
-                        <strong>{{ crew[0].full_name if crew|length > 0 else "—" }}</strong>
+                        <strong>{{ member.full_name }}</strong>
                     </div>
                 </a>
-
-                <a class="crew-card" href="?astronaut_id={{ crew[1].id if crew|length > 1 else '' }}" data-astronaut-id="{{ crew[1].id if crew|length > 1 else '' }}" data-astronaut-name="{{ crew[1].full_name if crew|length > 1 else '' }}">
-                    <span class="crew-username" aria-hidden="true">{{ crew[1].full_name if crew|length > 1 else "" }}</span>
-                    <div class="crew-silhouette-slot">
-                        <model-viewer class="crew-model"
-                                      data-src="astronaut_3d_model.glb"
-                                      alt="3D model of a crew member"
-                                      interaction-prompt="none"
-                                      disable-zoom
-                                      touch-action="pan-y"
-                                      shadow-intensity="1"
-                                      shadow-softness="1"
-                                      exposure="1.05"
-                                      environment-image="neutral"
-                                      camera-orbit="0deg 80deg auto"
-                                      field-of-view="28deg"
-                                      reveal="auto"></model-viewer>
-                        <div class="model-loading" role="status">
-                            <span>Loading model</span>
-                            <i class="model-loading-bar"><b></b></i>
-                        </div>
-                        <span class="slot-index">02</span>
-                    </div>
-                    <div class="crew-card-footer">
-                        <span class="crew-member-label">Crew member</span>
-                        <strong>{{ crew[1].full_name if crew|length > 1 else "—" }}</strong>
-                    </div>
-                </a>
-
-                <a class="crew-card" href="?astronaut_id={{ crew[2].id if crew|length > 2 else '' }}" data-astronaut-id="{{ crew[2].id if crew|length > 2 else '' }}" data-astronaut-name="{{ crew[2].full_name if crew|length > 2 else '' }}">
-                    <span class="crew-username" aria-hidden="true">{{ crew[2].full_name if crew|length > 2 else "" }}</span>
-                    <div class="crew-silhouette-slot">
-                        <model-viewer class="crew-model"
-                                      data-src="astronaut_3d_model.glb"
-                                      alt="3D model of a crew member"
-                                      interaction-prompt="none"
-                                      disable-zoom
-                                      touch-action="pan-y"
-                                      shadow-intensity="1"
-                                      shadow-softness="1"
-                                      exposure="1.05"
-                                      environment-image="neutral"
-                                      camera-orbit="0deg 80deg auto"
-                                      field-of-view="28deg"
-                                      reveal="auto"></model-viewer>
-                        <div class="model-loading" role="status">
-                            <span>Loading model</span>
-                            <i class="model-loading-bar"><b></b></i>
-                        </div>
-                        <span class="slot-index">03</span>
-                    </div>
-                    <div class="crew-card-footer">
-                        <span class="crew-member-label">Crew member</span>
-                        <strong>{{ crew[2].full_name if crew|length > 2 else "—" }}</strong>
-                    </div>
-                </a>
-
-                <a class="crew-card" href="?astronaut_id={{ crew[3].id if crew|length > 3 else '' }}" data-astronaut-id="{{ crew[3].id if crew|length > 3 else '' }}" data-astronaut-name="{{ crew[3].full_name if crew|length > 3 else '' }}">
-                    <span class="crew-username" aria-hidden="true">{{ crew[3].full_name if crew|length > 3 else "" }}</span>
-                    <div class="crew-silhouette-slot">
-                        <model-viewer class="crew-model"
-                                      data-src="astronaut_3d_model.glb"
-                                      alt="3D model of a crew member"
-                                      interaction-prompt="none"
-                                      disable-zoom
-                                      touch-action="pan-y"
-                                      shadow-intensity="1"
-                                      shadow-softness="1"
-                                      exposure="1.05"
-                                      environment-image="neutral"
-                                      camera-orbit="0deg 80deg auto"
-                                      field-of-view="28deg"
-                                      reveal="auto"></model-viewer>
-                        <div class="model-loading" role="status">
-                            <span>Loading model</span>
-                            <i class="model-loading-bar"><b></b></i>
-                        </div>
-                        <span class="slot-index">04</span>
-                    </div>
-                    <div class="crew-card-footer">
-                        <span class="crew-member-label">Crew member</span>
-                        <strong>{{ crew[3].full_name if crew|length > 3 else "—" }}</strong>
-                    </div>
-                </a>
-
+                {% endfor %}
             </div>
+            {% else %}
+            <p class="colleagues-detail-intro">No astronaut data has been collected yet.</p>
+            {% endif %}
         </div>
     </section>
 
@@ -412,7 +339,7 @@
                         </strong>
                     </div>
                     <div class="chart-frame">
-                        <svg class="health-chart" viewBox="0 0 420 200" preserveAspectRatio="none" role="img" aria-label="Heart rate over time. No data yet.">
+                        <svg class="health-chart" viewBox="0 0 420 200" preserveAspectRatio="none" role="img" aria-label="Heart rate over time. No data has been collected yet.">
                             <g class="chart-grid" aria-hidden="true">
                                 <line x1="0" y1="25" x2="420" y2="25"></line>
                                 <line x1="0" y1="75" x2="420" y2="75"></line>
@@ -420,7 +347,7 @@
                                 <line x1="0" y1="175" x2="420" y2="175"></line>
                             </g>
                         </svg>
-                        <p class="chart-empty">No data yet</p>
+                        <p class="chart-empty">No data has been collected yet.</p>
                     </div>
                 </article>
 
@@ -430,7 +357,7 @@
                         <strong>{{ metrics.recovery }}</strong>
                     </div>
                     <div class="chart-frame">
-                        <svg class="health-chart" viewBox="0 0 420 200" preserveAspectRatio="none" role="img" aria-label="Recovery over time. No data yet.">
+                        <svg class="health-chart" viewBox="0 0 420 200" preserveAspectRatio="none" role="img" aria-label="Recovery over time. No data has been collected yet.">
                             <g class="chart-grid" aria-hidden="true">
                                 <line x1="0" y1="25" x2="420" y2="25"></line>
                                 <line x1="0" y1="75" x2="420" y2="75"></line>
@@ -438,7 +365,7 @@
                                 <line x1="0" y1="175" x2="420" y2="175"></line>
                             </g>
                         </svg>
-                        <p class="chart-empty">No data yet</p>
+                        <p class="chart-empty">No data has been collected yet.</p>
                     </div>
                 </article>
 
@@ -450,7 +377,7 @@
                         </strong>
                     </div>
                     <div class="chart-frame">
-                        <svg class="health-chart" viewBox="0 0 420 200" preserveAspectRatio="none" role="img" aria-label="Sleep over time. No data yet.">
+                        <svg class="health-chart" viewBox="0 0 420 200" preserveAspectRatio="none" role="img" aria-label="Sleep over time. No data has been collected yet.">
                             <g class="chart-grid" aria-hidden="true">
                                 <line x1="0" y1="25" x2="420" y2="25"></line>
                                 <line x1="0" y1="75" x2="420" y2="75"></line>
@@ -458,7 +385,7 @@
                                 <line x1="0" y1="175" x2="420" y2="175"></line>
                             </g>
                         </svg>
-                        <p class="chart-empty">No data yet</p>
+                        <p class="chart-empty">No data has been collected yet.</p>
                     </div>
                 </article>
 
@@ -468,7 +395,7 @@
                         <strong>{{ metrics.vo2 }}</strong>
                     </div>
                     <div class="chart-frame">
-                        <svg class="health-chart" viewBox="0 0 420 200" preserveAspectRatio="none" role="img" aria-label="VO2 over time. No data yet.">
+                        <svg class="health-chart" viewBox="0 0 420 200" preserveAspectRatio="none" role="img" aria-label="VO2 over time. No data has been collected yet.">
                             <g class="chart-grid" aria-hidden="true">
                                 <line x1="0" y1="25" x2="420" y2="25"></line>
                                 <line x1="0" y1="75" x2="420" y2="75"></line>
@@ -476,7 +403,7 @@
                                 <line x1="0" y1="175" x2="420" y2="175"></line>
                             </g>
                         </svg>
-                        <p class="chart-empty">No data yet</p>
+                        <p class="chart-empty">No data has been collected yet.</p>
                     </div>
                 </article>
 

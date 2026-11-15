@@ -153,6 +153,19 @@ body::before {
     letter-spacing: -0.02em;
 }
 
+.dashboard-signout {
+    padding: 6px 0;
+    border: 0;
+    color: var(--muted);
+    background: transparent;
+    font: inherit;
+    font-size: 0.68rem;
+    cursor: pointer;
+}
+
+.dashboard-signout:hover,
+.dashboard-signout:focus-visible { color: var(--accent); }
+
 .eyebrow {
     margin: 0;
     color: var(--muted);
@@ -343,6 +356,13 @@ body::before {
     list-style: none;
 }
 
+.tasks-panel .tasks-list {
+    max-height: 150px;
+    overflow-y: auto;
+    padding-right: 6px;
+    overscroll-behavior: contain;
+}
+
 .suggestions-list li,
 .tasks-list li {
     display: flex;
@@ -353,25 +373,31 @@ body::before {
     line-height: 1.5;
 }
 
-.tasks-list li::before {
-    width: 14px;
-    height: 14px;
-    margin-top: 0.15em;
-    flex: 0 0 14px;
-    border: 1px solid var(--line-strong);
-    border-radius: 4px;
-    content: "";
-}
-
 .suggestions-list .empty-item,
 .suggestions-list .loading-item,
 .tasks-list .empty-task {
     color: var(--muted);
 }
 
-.suggestions-list .empty-item::before,
-.tasks-list .empty-task::before {
+.suggestions-list .empty-item::before {
     opacity: 0.4;
+}
+
+.daily-task {
+    align-items: center;
+}
+
+.daily-task-text {
+    flex: 1;
+}
+
+.daily-task input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    flex: 0 0 14px;
+    accent-color: var(--accent);
+    opacity: 1;
 }
 
 /* ------------------------------

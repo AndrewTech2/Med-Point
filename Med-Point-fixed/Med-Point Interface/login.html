@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#07090d">
+    <meta name="description" content="Sign in to your Med-Point crew health dashboard.">
+    <title>Sign in | Med-Point</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="Aspect MIP.css">
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+    <div class="login-page">
+
+        <main class="login-main">
+            <section class="login-card" aria-labelledby="loginTitle">
+                <h1 id="loginTitle">Welcome back</h1>
+                <p class="login-intro">Sign in to continue to your health dashboard.</p>
+
+                {% if registered %}
+                    <p class="login-message" role="status">Your account is ready. Sign in to continue.</p>
+                {% endif %}
+                {% if error %}
+                    <p class="login-message" role="alert">{{ error }}</p>
+                {% endif %}
+
+                <form class="login-form" action="/login" method="post">
+                    <div class="login-field">
+                        <label for="email">Email address</label>
+                        <input id="email" name="email" type="email" placeholder="you@mission.org" autocomplete="username" required>
+                    </div>
+
+                    <div class="login-field">
+                        <label for="password">Password</label>
+                        <input id="password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+                    </div>
+
+                    <button class="open-button graphs-open-button" type="submit">
+                        Sign in <span aria-hidden="true">→</span>
+                    </button>
+                </form>
+
+                <p class="login-links">New to Med-Point? <a class="login-link" href="/signup">Create an account</a></p>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

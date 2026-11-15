@@ -10,9 +10,11 @@
     "use strict";
 
     const TARGET_ID = "healthSuggestions";
+    const TASKS_TARGET_ID = "dailyTasks";
     const GRAPHS_BUTTON_ID = "openGraphsPage";
     const SELECT_EVENT = "medpoint:select-category";
     const API_TIMEOUT_MS = 5000;
+    const DAILY_TASK_REFRESH_MS = 30000;
     const PREVIEW_COUNT = 5;
     const SELECT_DELAY_MS = 50;
     const MIN_LEVEL = -1;
@@ -172,12 +174,16 @@
         return asArray(window.MED_POINT_HISTORY?.astronauts).filter(isPlainObject);
     }
 
-    // Same fallback as Script MIP.js: an id that is not in the history falls back to the first astronaut.
+    // Keep newly registered astronauts selectable even before they have history data.
     function resolveAstronautId() {
         const requested = new URLSearchParams(location.search).get("astronaut_id");
         const requestedId = requested !== null && ASTRONAUT_ID_PATTERN.test(requested) ? validAstronautId(Number(requested)) : null;
         const astronauts = historyAstronauts();
-        if (requestedId !== null && astronauts.some(item => item.id === requestedId)) return requestedId;
+        const hasCrewCard = requestedId !== null
+            && document.querySelector(`.crew-card[data-astronaut-id="${requestedId}"]`);
+        if (requestedId !== null && (astronauts.some(item => item.id === requestedId) || hasCrewCard)) {
+            return requestedId;
+        }
         const first = astronauts[0];
         return first && Number.isSafeInteger(first.id) ? first.id : null;
     }
@@ -215,6 +221,25 @@
         } catch (error) {
             console.warn("Could not load recommendations, using the embedded copy:", error);
             return embeddedPayload(astronautId);
+        }
+    }
+
+    async function loadDailyTaskStatus(astronautId) {
+        if (!isHttpPage()) return null;
+        try {
+            const result = await fetchJson(`/api/astronauts/${astronautId}/daily-tasks`);
+            if (!Array.isArray(result.tasks) || result.tasks.some(task =>
+                !isPlainObject(task)
+                || !cleanString(task.key)
+                || !cleanString(task.label)
+                || typeof task.checked !== "boolean"
+            )) {
+                throw new Error("Daily task response has an unexpected shape");
+            }
+            return result.tasks;
+        } catch (error) {
+            console.error("Could not load today's task status:", error);
+            return null;
         }
     }
 
@@ -341,6 +366,37 @@
         list.replaceChildren(...nodes);
     }
 
+    function renderDailyTasks(tasks) {
+        const list = document.getElementById(TASKS_TARGET_ID);
+        if (!list) return;
+
+        const items = tasks.some(task => task.checked)
+            ? []
+            : [el("li", "empty-task", "No health data has been collected today.")];
+        tasks.forEach(task => {
+            const item = el("li", "daily-task");
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = task.checked;
+            checkbox.disabled = true;
+            checkbox.setAttribute(
+                "aria-label",
+                `${task.label}: ${task.checked ? "recorded today" : "not recorded today"}`
+            );
+            item.appendChild(checkbox);
+            item.appendChild(el("span", "daily-task-text", `Record ${task.label} today.`));
+            items.push(item);
+        });
+        list.replaceChildren(...items);
+    }
+
+    function renderDailyTaskError() {
+        const list = document.getElementById(TASKS_TARGET_ID);
+        if (list) {
+            list.replaceChildren(el("li", "empty-task", "Today's task status is unavailable."));
+        }
+    }
+
     // Sends all four regions every time so a colour from the previous astronaut is cleared (null).
     function updateBody(regions) {
         const scores = Object.fromEntries(REGION_KEYS.map(key => [key, regions[key] ?? null]));
@@ -376,6 +432,7 @@
         isExpanded = false;
         if (astronautId === null) {
             renderEmpty(list);
+            renderDailyTaskError();
             hasLoaded = true;
             return;
         }
@@ -385,22 +442,46 @@
             hideSlots();
             list.replaceChildren(el("li", "loading-item", TEXT.loading));
         }
-        const payload = await loadPayload(astronautId);
+        const [payload, dailyTasks] = await Promise.all([
+            loadPayload(astronautId),
+            loadDailyTaskStatus(astronautId)
+        ]);
         if (request !== latestRequest) return;
         hasLoaded = true;
         if (!payload) {
             renderEmpty(list);
-            return;
+        } else {
+            list.removeAttribute("aria-busy");
+            currentPayload = payload;
+            renderPayload(list, payload);
         }
-        list.removeAttribute("aria-busy");
-        currentPayload = payload;
-        renderPayload(list, payload);
+        if (dailyTasks === null) renderDailyTaskError();
+        else renderDailyTasks(dailyTasks);
+    }
+
+    async function refreshDailyTaskStatus(astronautId) {
+        const tasks = await loadDailyTaskStatus(astronautId);
+        if (astronautId !== resolveAstronautId()) return;
+        if (tasks === null) renderDailyTaskError();
+        else renderDailyTasks(tasks);
     }
 
     document.addEventListener("medpoint:astronaut-changed", event => {
         const astronautId = validAstronautId(event.detail?.astronautId);
         if (astronautId !== null) reload(astronautId);
     });
+    if (isHttpPage()) {
+        window.setInterval(() => {
+            if (document.visibilityState !== "visible") return;
+            const astronautId = resolveAstronautId();
+            if (astronautId !== null) refreshDailyTaskStatus(astronautId);
+        }, DAILY_TASK_REFRESH_MS);
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState !== "visible") return;
+            const astronautId = resolveAstronautId();
+            if (astronautId !== null) refreshDailyTaskStatus(astronautId);
+        });
+    }
 
     window.MedPointRecommendations = Object.freeze({
         reload,
