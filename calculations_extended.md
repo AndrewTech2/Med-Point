@@ -413,18 +413,18 @@ These extend the open decisions in Calcule.md (which already covers BMI measured
 
 ## Sources
 
-Researchers could not open several primary pages (403 or cookie walls). Values taken from search snippets or secondary sites are marked in the text. Check each against the primary source before implementation.
+Researchers could not open several primary pages (403 or cookie walls). Values taken from search snippets or secondary sites are marked in the text. Check each against the primary source before implementation. NASA items are tagged with [NASA] to distinguish them from non-NASA references.
 
 **Cardiovascular and metabolic**
-- [S1] NASA evidence report, orthostatic intolerance on re-exposure to gravity: https://ntrs.nasa.gov/api/citations/20150007319/downloads/20150007319.pdf
-- [S2] NASA Human Research Roadmap, cardiovascular risk evidence report 2022: https://humanresearchroadmap.nasa.gov/Evidence/reports/Cardio%20Risk%20EB%202022%20FINAL_4-3-2023.pdf
-- [S3] NASA OCHMO technical brief, orthostatic intolerance: https://www.nasa.gov/wp-content/uploads/2023/12/ochmo-tb-019-orthostatic-intolerance.pdf
+- [S1] [NASA] NASA evidence report, orthostatic intolerance on re-exposure to gravity: https://ntrs.nasa.gov/api/citations/20150007319/downloads/20150007319.pdf
+- [S2] [NASA] NASA Human Research Roadmap, cardiovascular risk evidence report 2022: https://humanresearchroadmap.nasa.gov/Evidence/reports/Cardio%20Risk%20EB%202022%20FINAL_4-3-2023.pdf
+- [S3] [NASA] NASA OCHMO technical brief, orthostatic intolerance: https://www.nasa.gov/wp-content/uploads/2023/12/ochmo-tb-019-orthostatic-intolerance.pdf
 - [S4] Orthostatic intolerance in spaceflight, systematic review and meta-analysis (2026): https://www.sciencedirect.com/science/article/pii/S0094576526003346
 - [S5] Review of microgravity effects on cardiovascular and nervous systems: https://pmc.ncbi.nlm.nih.gov/articles/PMC12575774/
 - [S6] Cardiovascular autonomic responses and orthostatic intolerance in astronauts: https://pmc.ncbi.nlm.nih.gov/articles/PMC9018660/
-- [S7] Aerobic capacity after long-duration ISS missions: https://ntrs.nasa.gov/citations/20100037247
-- [S8] Exercise intensity and time vs VO2peak in spaceflight: https://ntrs.nasa.gov/citations/20140003747
-- [S9] NASA Sprint study, high-intensity training in spaceflight: https://www.nature.com/articles/s41526-020-00111-x
+- [S7] [NASA] Aerobic capacity after long-duration ISS missions: https://ntrs.nasa.gov/citations/20100037247
+- [S8] [NASA] Exercise intensity and time vs VO2peak in spaceflight: https://ntrs.nasa.gov/citations/20140003747
+- [S9] [NASA] NASA Sprint study, high-intensity training in spaceflight: https://www.nature.com/articles/s41526-020-00111-x
 - [S10] Peak oxygen uptake after long-duration spaceflight: https://journals.physiology.org/doi/full/10.1152/japplphysiol.01251.2013
 - [S11] Hemolysis and anemia in long-duration spaceflight (Nature Medicine 2021): https://www.nature.com/articles/s41591-021-01637-7
 - [S12] Control of red blood cell mass during spaceflight: https://pubmed.ncbi.nlm.nih.gov/11540296/
@@ -446,28 +446,28 @@ Researchers could not open several primary pages (403 or cookie walls). Values t
 - [S26] Lang et al. 2004, bone loss on ISS (snippet only): https://pubmed.ncbi.nlm.nih.gov/15125798/
 - [S27] Roberts et al. 2025, musculoskeletal responses to spaceflight: https://eprints.soton.ac.uk/507468/1/roberts-et-al-2025-musculoskeletal-responses-to-spaceflight-mechanisms-countermeasures-and-key-gaps.pdf
 - [S28] TBone study, bone recovery after spaceflight (2022): https://sciencedaily.com/releases/2022/06/220630134845.htm
-- [S29] NASA HRP renal stone risk: https://ntrs.nasa.gov/citations/20160013663
-- [S30] NASA HRP renal risk update 2023: https://ntrs.nasa.gov/api/citations/20230015722/downloads/RenalPanel-4-HRP%20risk.pdf
-- [S31] NASA ISS exercise countermeasures: https://ntrs.nasa.gov/api/citations/20160008094/downloads/20160008094.pdf
-- [S32] NASA, Human Adaptation to Spaceflight: The Role of Food and Nutrition (2021): https://www.nasa.gov/sites/default/files/atoms/files/human_adaptation_2021_final.pdf
+- [S29] [NASA] NASA HRP renal stone risk: https://ntrs.nasa.gov/citations/20160013663
+- [S30] [NASA] NASA HRP renal risk update 2023: https://ntrs.nasa.gov/api/citations/20230015722/downloads/RenalPanel-4-HRP%20risk.pdf
+- [S31] [NASA] NASA ISS exercise countermeasures: https://ntrs.nasa.gov/api/citations/20160008094/downloads/20160008094.pdf
+- [S32] [NASA] NASA, Human Adaptation to Spaceflight: The Role of Food and Nutrition (2021): https://www.nasa.gov/sites/default/files/atoms/files/human_adaptation_2021_final.pdf
 
 **Sleep, stress, cognition, radiation, vision**
-- [S33] NASA-STD-3001 Vol 1 Rev C, compliance matrix: https://www.nasa.gov/wp-content/uploads/2025/01/nasa-std-3001-vol-1-appendix-d.pdf
-- [S34] NASA OCHMO technical brief, radiation protection: https://www.nasa.gov/wp-content/uploads/2023/12/ochmo-tb-020-radiation-protection.pdf
+- [S33] [NASA] NASA-STD-3001 Vol 1 Rev C, compliance matrix: https://www.nasa.gov/wp-content/uploads/2025/01/nasa-std-3001-vol-1-appendix-d.pdf
+- [S34] [NASA] NASA OCHMO technical brief, radiation protection: https://www.nasa.gov/wp-content/uploads/2023/12/ochmo-tb-020-radiation-protection.pdf
 - [S35] National Academies 2021, space radiation and astronaut health: https://www.nationalacademies.org/read/26155/chapter/5
 - [S36] Mars mission dose estimates (arXiv): https://arxiv.org/pdf/2409.02001
 - [S37] National Sleep Foundation, sleep duration recommendations: https://www.thensf.org/sleep-duration-recommendations/
 - [S38] NSF recommendations 10-year review (Sleep Health 2026): https://www.sleephealthjournal.org/article/S2352-7218(26)00106-3/fulltext
-- [S39] NASA sleep evidence report: https://humanresearchroadmap.nasa.gov/Evidence/reports/Sleep.pdf
+- [S39] [NASA] NASA sleep evidence report: https://humanresearchroadmap.nasa.gov/Evidence/reports/Sleep.pdf
 - [S40] Sleep deficiency on 6-month ISS missions (Sleep 2022): https://academic.oup.com/sleep/article/45/3/zsac006/6505235
 - [S41] Circadian misalignment and sleep in spaceflight (npj Microgravity 2015): https://www.nature.com/articles/npjmgrav201519
-- [S42] NASA sleep accommodations technical brief: https://www.nasa.gov/wp-content/uploads/2023/03/sleep-accomodations-technical-brief-ochmo.pdf
-- [S43] NASA OCHMO technical brief TB-041, sleep: https://www.nasa.gov/wp-content/uploads/2023/12/ochmo-tb-041-sleep-accommodations.pdf
-- [S44] NASA, seven ways astronauts improve sleep: https://www.nasa.gov/humans-in-space/seven-ways-astronauts-improve-sleep-may-help-you-snooze-better-on-earth/
+- [S42] [NASA] NASA sleep accommodations technical brief: https://www.nasa.gov/wp-content/uploads/2023/03/sleep-accomodations-technical-brief-ochmo.pdf
+- [S43] [NASA] NASA OCHMO technical brief TB-041, sleep: https://www.nasa.gov/wp-content/uploads/2023/12/ochmo-tb-041-sleep-accommodations.pdf
+- [S44] [NASA] NASA, seven ways astronauts improve sleep: https://www.nasa.gov/humans-in-space/seven-ways-astronauts-improve-sleep-may-help-you-snooze-better-on-earth/
 - [S45] PSS-10 scoring bands (secondary): https://www.mentalyc.com/blog/perceived-stress-scale-pss-10
 - [S46] PSS caveat, no official cut-offs (secondary): https://www.tacklit.com/assessments/perceived-stress-scale-pss
 - [S47] Basner et al. 2011, brief PVT validity: https://www.med.upenn.edu/uep/assets/user-content/documents/Basner2011-ValidityandsensitivityofabriefPVT.pdf
-- [S48] NASA study, chorioretinal folds in spaceflight: https://ntrs.nasa.gov/api/citations/20230002241/downloads/CRFerguson_ChorioretinalFoldsSpaceflight_ArticleFile_Revision_CLEAN.pdf
+- [S48] [NASA] NASA study, chorioretinal folds in spaceflight: https://ntrs.nasa.gov/api/citations/20230002241/downloads/CRFerguson_ChorioretinalFoldsSpaceflight_ArticleFile_Revision_CLEAN.pdf
 - [S49] SANS review (npj Microgravity): https://link.springer.com/10.1038/s41526-020-0097-9
 - [S50] Population HRV / RMSSD by age (secondary for thresholds): https://pmc.ncbi.nlm.nih.gov/articles/PMC7734556
 - [S51] Task Force of the ESC/NASPE 1996, Heart rate variability standards, European Heart Journal 17:354-381 (citation only, not opened)
