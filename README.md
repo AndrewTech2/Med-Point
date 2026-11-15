@@ -42,9 +42,3 @@ python3 app.py
 ```
 
 Open [http://127.0.0.1:5000](http://127.0.0.1:5000) in a browser. The repository includes an `astronauts.db` SQLite database with sample astronaut and measurement-history records. The app reads and updates this database; keep a backup before making changes.
-
-The dashboard loads its web fonts and 3D model-viewer library from external CDNs, so internet access is needed for those assets.
-
-## Medical-use notice
-
-Med-Point is a tracking and demonstration application, not a medical device or a substitute for clinical judgment. Recommendation thresholds and guidance are informational and must be reviewed by the mission medical team before operational use. The project’s calculations and proposed thresholds may be incomplete or unverified.
